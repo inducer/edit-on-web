@@ -1,5 +1,6 @@
 var codemirror_instance;
 var last_saved_generation;
+var storage_key;
 
 // {{{ messages
 
@@ -148,15 +149,16 @@ function setup_codemirror()
   codemirror_instance = CodeMirror(editor_dom, cm_config);
   CodeMirror.modeURL = "/static/codemirror/mode/%N/%N.js";
 
-  if (m = /.+\.([^.]+)$/.exec(eow_info.filename)) {
+  if (m = /.+\.([^.]+)$/.exec(eow_info.filename))
+  {
     var info = CodeMirror.findModeByExtension(m[1]);
-    if (info) {
+    if (info)
+    {
+      set_message("debug", "Autodetected mode: "+info.mode);
       mode = info.mode;
       spec = info.mime;
       codemirror_instance.setOption("mode", spec);
       CodeMirror.autoLoadMode(codemirror_instance, mode);
-
-      set_message("debug", "Autodetected mode: "+info.mode);
     }
   }
 
@@ -176,6 +178,32 @@ function setup_codemirror()
     set_message("warning", "Opened document in read-only mode.");
 
   last_saved_generation = eow_info.generation;
+
+  storage_key = eow_info.filename;
+
+  var prev_location = localStorage[storage_key];
+  if (prev_location != null)
+  {
+    prev_location = JSON.parse(prev_location);
+    codemirror_instance.scrollIntoView(prev_location.scroll_area);
+    codemirror_instance.setCursor(prev_location.cursor);
+  }
+}
+
+
+function save_editor_position()
+{
+  var scroll_info = codemirror_instance.getScrollInfo();
+
+  localStorage[storage_key] = JSON.stringify({
+    cursor: codemirror_instance.getCursor(),
+    scroll_area: {
+      left: scroll_info.left,
+      top: scroll_info.top,
+      bottom: scroll_info.top + scroll_info.clientHeight,
+      right: scroll_info.left + scroll_info.clientWidth
+    }
+  });
 }
 
 // }}}
@@ -258,6 +286,7 @@ function setup()
   $(window).on('beforeunload',
       function()
       {
+        save_editor_position();
         if (!codemirror_instance.isClean())
           return "You have unsaved changes on this page.";
       });
