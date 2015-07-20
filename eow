@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-from flask import Flask, render_template, flash, Markup, request, make_response
+from flask import (Flask, render_template, flash, Markup, request, make_response,
+        session)
 app = Flask(__name__)
 
 
@@ -78,7 +79,8 @@ def edit(filename):
             filename=filename,
             filename_encoded=Markup(quote(filename)),
             mimetype=guess_type(filename)[0],
-            keymap=keymap if keymap else "")
+            keymap=keymap if keymap else "",
+            csrf_token=app.config["CSRF_TOKEN"])
 
 
 @app.route("/save", methods=["POST"])
@@ -86,6 +88,9 @@ def save():
     from codecs import open
 
     data = request.get_json()
+
+    if data["csrf_token"] != app.config["CSRF_TOKEN"]:
+        raise RuntimeError("invalid CSRF token")
 
     full_path = to_full_path(data["filename"])
     content = data["content"]
@@ -106,6 +111,15 @@ def save():
     return resp
 
 
+def make_secret():
+    import hashlib
+    sha = hashlib.sha1()
+    from random import randrange
+    sha.update(bytes([randrange(255) for i in range(300)]))
+
+    return sha.hexdigest()
+
+
 def main():
     from argparse import ArgumentParser
 
@@ -117,6 +131,8 @@ def main():
     parser.add_argument(
             "--browser", default="default",
             help="Type of web browser to launch (or 'none')")
+    parser.add_argument('--password',
+            help="Set a password required for editing")
     parser.add_argument('--allow-ip', nargs='*',
             help="Allow a given set of hosts and/or networks",
             metavar="NETWORK")
@@ -137,16 +153,13 @@ def main():
 
     app.config["EOW_ROOTDIR"] = realpath(args.root)
     app.config["EOW_KEYMAP"] = args.keymap
+    app.config["EOW_PASSWORD"] = args.password
+    app.config["CSRF_TOKEN"] = make_secret()
 
     if args.secret_key:
         app.secret_key = args.secret_key
     else:
-        import hashlib
-        sha = hashlib.sha1()
-        from random import randrange
-        sha.update(bytes([randrange(255) for i in range(300)]))
-
-        app.secret_key = sha.hexdigest()
+        app.secret_key = make_secret()
 
     #app.debug = True
 

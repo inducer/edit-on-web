@@ -162,6 +162,7 @@ function setup_saving()
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({
           filename: eow_filename,
+          csrf_token: eow_csrf_token,
           content: codemirror_instance.getValue()
         })
       });
