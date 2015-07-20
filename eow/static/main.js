@@ -106,6 +106,7 @@ function setup_codemirror()
 
   var editor_dom = document.getElementById("editor")
   codemirror_instance = CodeMirror(editor_dom, cm_config);
+  CodeMirror.modeURL = "/static/codemirror/mode/%N/%N.js";
 
   if (m = /.+\.([^.]+)$/.exec(eow_filename)) {
     var info = CodeMirror.findModeByExtension(m[1]);
@@ -114,6 +115,7 @@ function setup_codemirror()
       spec = info.mime;
       codemirror_instance.setOption("mode", spec);
       CodeMirror.autoLoadMode(codemirror_instance, mode);
+
       set_message("debug", "Autodetected mode: "+info.mode);
     }
   }
