@@ -63,4 +63,6 @@
    background-position: right;
    background-repeat: no-repeat;
 }
-
+.CodeMirror.cm-s-eow-readonly {
+  background-color: #e8e8e8;
+}

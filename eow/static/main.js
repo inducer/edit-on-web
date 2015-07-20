@@ -1,4 +1,5 @@
 var codemirror_instance;
+var last_saved_generation;
 
 // {{{ messages
 
@@ -73,9 +74,17 @@ function setup_messages()
 
 function setup_codemirror()
 {
+  var theme = "default";
+  if (eow_info.read_only)
+  {
+    theme += " eow-readonly";
+  }
+
+
   var cm_config = {
     value: eow_info.content,
     fixedGutter: true,
+    theme: theme,
     lineNumbers: true,
     autofocus: true,
     matchBrackets: true,
@@ -84,6 +93,7 @@ function setup_codemirror()
     lineWrapping: eow_info.wrap_lines,
     indentUnit: 2,
     undoDepth: 10000,
+    readOnly: eow_info.read_only,
     extraKeys:
         {
           "Ctrl-/": "toggleComment",
@@ -161,21 +171,10 @@ function setup_codemirror()
     $(".CodeMirror").css("font-family", eow_info.font_family);
     codemirror_instance.refresh();
   }
-}
+  if (eow_info.font_family)
+    set_message("warning", "Opened document in read-only mode.");
 
-// }}}
-
-// {{{ change listening
-
-function activate_change_listening()
-{
-
-  $(window).on('beforeunload',
-      function()
-      {
-        if (!codemirror_instance.isClean())
-          return "You have unsaved changes on this page.";
-      });
+  last_saved_generation = eow_info.generation;
 }
 
 // }}}
@@ -200,8 +199,18 @@ function escape_html(string)
 
 function setup_saving()
 {
+  var save_in_progress = false;
+
   function save(evt)
   {
+    if (save_in_progress)
+    {
+      set_message("error", "A save operation is already ongoing, "
+          + "please wait for it to finish.");
+      return;
+    }
+
+    save_in_progress = true;
     set_message("cmd", "Saving "+eow_info.filename+"...");
 
     var req = $.ajax({
@@ -212,18 +221,23 @@ function setup_saving()
         data: JSON.stringify({
           filename: eow_info.filename,
           csrf_token: eow_info.csrf_token,
-          content: codemirror_instance.getValue()
+          content: codemirror_instance.getValue(),
+          generation: last_saved_generation
         })
       });
 
     req.done(function(data, text_status, xhr)
         {
           set_message("progress", "Saved "+eow_info.filename+".")
+
           codemirror_instance.markClean();
+          save_in_progress = false;
+          last_saved_generation += 1;
         });
 
     req.fail(function(xhr, text_status, err_thrown)
         {
+          save_in_progress = false;
           set_message("progress", "Error saving "+eow_info.filename+": "+err_thrown
               +"<pre>"+escape_html(xhr.responseText)+"</pre>")
         });
@@ -239,7 +253,14 @@ function setup()
 {
   setup_messages();
   setup_codemirror();
-  activate_change_listening();
+
+  $(window).on('beforeunload',
+      function()
+      {
+        if (!codemirror_instance.isClean())
+          return "You have unsaved changes on this page.";
+      });
+
   setup_saving();
 }
 

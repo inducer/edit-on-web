@@ -27,6 +27,16 @@ def handle_unauthorized(error):
         type(error).__name__, str(error)), error.status_code)
 
 
+class Conflict(Exception):
+    status_code = 409
+
+
+@app.errorhandler(Conflict)
+def handle_conflict(error):
+    return make_response("%s: %s" % (
+        type(error).__name__, str(error)), error.status_code)
+
+
 # {{{ allowed networks
 
 class AllowedNetworksMiddleware(object):
@@ -102,6 +112,9 @@ def log_out():
     return render_template('logout.html')
 
 
+FILENAME_TO_LAST_SAVED_GENERATION = {}
+
+
 @app.route("/e/<path:filename>")
 def edit(filename):
     if (app.config["EOW_PASSWORD"]
@@ -120,13 +133,16 @@ def edit(filename):
         flash("File not found. New file will be created when saving.")
         content = u""
 
+    generation = FILENAME_TO_LAST_SAVED_GENERATION.setdefault(filename, 0)
     keymap = app.config["EOW_KEYMAP"]
 
     from json import dumps
     info = {
             "content": content,
             "filename": filename,
+            "read_only": "readonly" in request.args,
             "keymap": keymap,
+            "generation": generation,
             "csrf_token": app.config["EOW_CSRF_TOKEN"],
             "wrap_lines": app.config["EOW_WRAP_LINES"],
             "hide_save_button": app.config["EOW_HIDE_SAVE_BUTTON"],
@@ -151,8 +167,15 @@ def save():
     if data["csrf_token"] != app.config["EOW_CSRF_TOKEN"]:
         raise Unauthorized("invalid CSRF token")
 
-    full_path = to_full_path(data["filename"])
+    filename = data["filename"]
+    full_path = to_full_path(filename)
     content = data["content"]
+    generation = data["generation"]
+
+    if FILENAME_TO_LAST_SAVED_GENERATION[filename] != generation:
+        raise Conflict("Document was updated from a different session, "
+                "rejecting updated based on old state.\nSave your work "
+                "elsewhere and reload the page.")
 
     backup_name = full_path+"~"
 
@@ -172,6 +195,8 @@ def save():
     except:
         rename(backup_name, full_path)
         raise
+
+    FILENAME_TO_LAST_SAVED_GENERATION[filename] += 1
 
     resp = make_response("OK", 200)
     return resp
