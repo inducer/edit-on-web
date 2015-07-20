@@ -4,7 +4,7 @@ EOW: Edit-on-Web
 This program provides just enough glue to use the excellent `CodeMirror
 <http://codemirror.net/>`_ as an editor for local files.
 
-Do the following:
+Do the following::
 
     pip install edit-on-web
 
