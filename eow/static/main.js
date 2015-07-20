@@ -81,11 +81,42 @@ function setup_codemirror()
     matchBrackets: true,
     styleActiveLine: true,
     showTrailingSpace: true,
+    lineWrapping: eow_info.wrap_lines,
     indentUnit: 2,
     undoDepth: 10000,
     extraKeys:
         {
           "Ctrl-/": "toggleComment",
+          "Ctrl-P": function(cm)
+          {
+            var wrap_options = {
+              wrapOn: /\s\S/,
+              column: 80,
+            };
+
+            if (codemirror_instance.somethingSelected())
+            {
+              set_message("debug", "multisel wrap")
+              var sels = codemirror_instance.listSelections();
+              for (var i = 0; i < sels.length; ++sels)
+              {
+                var head = sels[i].head;
+                var anchor = sels[i].anchor;
+
+                if (head.line < anchor.line)
+                {
+                  var temp = head;
+                  head = anchor;
+                  anchor = temp;
+                }
+
+                codemirror_instance.wrapParagraphsInRange(anchor, head, wrap_options);
+              }
+            }
+            else
+              codemirror_instance.wrapParagraph(
+                  codemirror_instance.getCursor(), wrap_options);
+          },
           "Tab": function(cm)
           {
             var spaces =
@@ -120,28 +151,30 @@ function setup_codemirror()
     }
   }
 
+  if (eow_info.hide_save_button)
+  {
+    $("#button_bar").hide();
+    $("#editor").css("height", "100%");
+  }
+
+  if (eow_info.font_family)
+  {
+    $(".CodeMirror").css("font-family", eow_info.font_family);
+    codemirror_instance.refresh();
+  }
 }
 
 // }}}
 
 // {{{ change listening
 
-var input_changed = false;
-
 function activate_change_listening()
 {
-
-  function on_cm_change(cm, change_obj)
-  {
-    input_changed = true;
-  }
-
-  codemirror_instance.on("change", on_cm_change);
 
   $(window).on('beforeunload',
       function()
       {
-        if (input_changed)
+        if (!codemirror_instance.isClean())
           return "You have unsaved changes on this page.";
       });
 }
@@ -195,7 +228,7 @@ function setup_saving()
               +"<pre>"+escape_html(xhr.responseText)+"</pre>")
         });
 
-    input_changed = false;
+    codemirror_instance.markClean();
   }
 
   $(".save-button").on("click", save);

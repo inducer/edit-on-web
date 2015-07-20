@@ -118,7 +118,10 @@ def edit(filename):
             "content": content,
             "filename": filename,
             "keymap": keymap,
-            "csrf_token": app.config["EOW_CSRF_TOKEN"]
+            "csrf_token": app.config["EOW_CSRF_TOKEN"],
+            "wrap_lines": app.config["EOW_WRAP_LINES"],
+            "hide_save_button": app.config["EOW_HIDE_SAVE_BUTTON"],
+            "font_family": app.config["EOW_FONT_FAMILY"],
             }
     return render_template('edit.html',
             filename=filename,
@@ -188,6 +191,9 @@ def main():
             help="Root directory exposed by the editor",
             metavar="DIRECTORY")
     parser.add_argument('--debug', action="store_true")
+    parser.add_argument('--wrap-lines', action="store_true")
+    parser.add_argument('--hide-save-button', action="store_true")
+    parser.add_argument('--font-family')
     parser.add_argument('-k', '--keymap',
             help="Keymap to use (vim, emacs, sublime, or default)",
             metavar="KEYMAP")
@@ -204,6 +210,9 @@ def main():
     app.config["EOW_KEYMAP"] = args.keymap
     app.config["EOW_PASSWORD"] = args.password
     app.config["EOW_CSRF_TOKEN"] = make_secret()
+    app.config["EOW_WRAP_LINES"] = args.wrap_lines
+    app.config["EOW_HIDE_SAVE_BUTTON"] = args.hide_save_button
+    app.config["EOW_FONT_FAMILY"] = args.font_family
 
     if args.secret_key:
         app.secret_key = args.secret_key
