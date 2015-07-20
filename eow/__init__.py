@@ -113,13 +113,17 @@ def edit(filename):
 
     keymap = app.config["EOW_KEYMAP"]
 
-    from urllib import quote
+    from json import dumps
+    info = {
+            "content": content,
+            "filename": filename,
+            "keymap": keymap,
+            "csrf_token": app.config["EOW_CSRF_TOKEN"]
+            }
     return render_template('edit.html',
-            content=Markup(quote(content)),
             filename=filename,
-            filename_encoded=Markup(quote(filename)),
-            keymap=keymap if keymap else "",
-            csrf_token=app.config["EOW_CSRF_TOKEN"])
+            info=Markup(dumps(info))
+            )
 
 
 @app.route("/save", methods=["POST"])

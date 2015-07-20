@@ -74,7 +74,7 @@ function setup_messages()
 function setup_codemirror()
 {
   var cm_config = {
-    value: eow_content,
+    value: eow_info.content,
     fixedGutter: true,
     lineNumbers: true,
     autofocus: true,
@@ -95,20 +95,20 @@ function setup_codemirror()
         }
   };
 
-  if (eow_keymap == "vim")
+  if (eow_info.keymap == "vim")
     cm_config["vimMode"] = true;
-  else if (eow_keymap == "default")
+  else if (eow_info.keymap == "default")
   {
     /* do nothing */
   }
-  else if (eow_keymap != "")
-    cm_config["keyMap"] = eow_keymap;
+  else if (eow_info.keymap)
+    cm_config["keyMap"] = eow_info.keymap;
 
   var editor_dom = document.getElementById("editor")
   codemirror_instance = CodeMirror(editor_dom, cm_config);
   CodeMirror.modeURL = "/static/codemirror/mode/%N/%N.js";
 
-  if (m = /.+\.([^.]+)$/.exec(eow_filename)) {
+  if (m = /.+\.([^.]+)$/.exec(eow_info.filename)) {
     var info = CodeMirror.findModeByExtension(m[1]);
     if (info) {
       mode = info.mode;
@@ -170,7 +170,7 @@ function setup_saving()
 {
   function save(evt)
   {
-    set_message("cmd", "Saving "+eow_filename+"...");
+    set_message("cmd", "Saving "+eow_info.filename+"...");
 
     var req = $.ajax({
         method: "POST",
@@ -178,20 +178,20 @@ function setup_saving()
         dataType: "text",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({
-          filename: eow_filename,
-          csrf_token: eow_csrf_token,
+          filename: eow_info.filename,
+          csrf_token: eow_info.csrf_token,
           content: codemirror_instance.getValue()
         })
       });
 
     req.done(function(data, text_status, xhr)
         {
-          set_message("progress", "Saved "+eow_filename+".")
+          set_message("progress", "Saved "+eow_info.filename+".")
         });
 
     req.fail(function(xhr, text_status, err_thrown)
         {
-          set_message("progress", "Error saving "+eow_filename+": "+err_thrown
+          set_message("progress", "Error saving "+eow_info.filename+": "+err_thrown
               +"<pre>"+escape_html(xhr.responseText)+"</pre>")
         });
 
