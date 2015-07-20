@@ -1,0 +1,58 @@
+<!doctype html>
+<head>
+  <title>{{ filename }} - Edit-on-Web</title>
+  <link href="{{ url_for('static', filename='codemirror/lib/codemirror.css') }}" type="text/css" media="all" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='codemirror/addon/dialog/dialog.css') }}" type="text/css" media="all" rel="stylesheet" />
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='jquery-2.1.4.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/lib/codemirror.js') }}"></script>
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/mode/python/python.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/mode/stex/stex.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/mode/ruby/ruby.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/mode/shell/shell.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/mode/clike/clike.js') }}"></script>
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/search/searchcursor.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/dialog/dialog.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/search/search.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/comment/comment.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/edit/matchbrackets.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/selection/active-line.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/edit/trailingspace.js') }}"></script>
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/vim.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/emacs.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/sublime.js') }}"></script>
+
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='main.js') }}"></script>
+</head>
+<body>
+  <div id="root">
+    <div id="editor"></div>
+    <div id="button_bar">
+      <button class="save-button" accesskey="s">Save</button> (<b>Alt+(Shift-)s)</b>)
+      &middot;
+      <tt>{{ filename }}</tt>
+    </div>
+
+    <div id="message_box">
+    </div>
+
+    <ul id="initial_messages">
+      {% for message in get_flashed_messages() %}
+        <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <script type="text/javascript">
+    var eow_keymap = "{{ keymap }}";
+    var eow_mimetype = "{{ mimetype }}";
+    var eow_filename = decodeURIComponent("{{ filename_encoded }}");
+    var eow_content = decodeURIComponent("{{ content }}");
+  </script>
+</body>
+<!-- vim:foldmethod=marker -->
