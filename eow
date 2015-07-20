@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 from flask import (Flask, render_template, flash, Markup, request, make_response,
-        session)
+        session, redirect, url_for)
 app = Flask(__name__)
 
 
@@ -58,8 +58,37 @@ def to_full_path(filename):
     return full_path
 
 
+@app.route("/login", methods=["GET", "POST"])
+def log_in():
+    if request.method == "POST":
+        if request.form.get("password", None) == app.config["EOW_PASSWORD"]:
+            flash("Successfully logged in.")
+            session["authenticated"] = True
+            return redirect(request.args.get("next", "/"))
+
+        else:
+            flash("Wrong password.")
+
+    return render_template('login.html')
+
+
+@app.route("/logout", methods=["GET", "POST"])
+def log_out():
+    if request.method == "POST":
+        flash("Logged out.")
+        session["authenticated"] = False
+
+    return render_template('logout.html')
+
+
 @app.route("/e/<path:filename>")
 def edit(filename):
+    if (app.config["EOW_PASSWORD"]
+            and not session.get("authenticated", False)):
+        return redirect(
+                url_for('.log_in')
+                + "?next="+url_for('.edit', filename=filename))
+
     full_path = to_full_path(filename)
 
     from codecs import open
@@ -80,16 +109,20 @@ def edit(filename):
             filename_encoded=Markup(quote(filename)),
             mimetype=guess_type(filename)[0],
             keymap=keymap if keymap else "",
-            csrf_token=app.config["CSRF_TOKEN"])
+            csrf_token=app.config["EOW_CSRF_TOKEN"])
 
 
 @app.route("/save", methods=["POST"])
 def save():
+    if (app.config["EOW_PASSWORD"]
+            and not session.get("authenticated", False)):
+        raise RuntimeError("not authenticated")
+
     from codecs import open
 
     data = request.get_json()
 
-    if data["csrf_token"] != app.config["CSRF_TOKEN"]:
+    if data["csrf_token"] != app.config["EOW_CSRF_TOKEN"]:
         raise RuntimeError("invalid CSRF token")
 
     full_path = to_full_path(data["filename"])
@@ -114,8 +147,9 @@ def save():
 def make_secret():
     import hashlib
     sha = hashlib.sha1()
-    from random import randrange
-    sha.update(bytes([randrange(255) for i in range(300)]))
+
+    import os
+    sha.update(os.urandom(24))
 
     return sha.hexdigest()
 
@@ -139,6 +173,7 @@ def main():
     parser.add_argument('--root', default=".",
             help="Root directory exposed by the editor",
             metavar="DIRECTORY")
+    parser.add_argument('--debug', action="store_true")
     parser.add_argument('--keymap',
             help="Keymap to use (vim, emacs, sublime, or none)",
             metavar="KEYMAP")
@@ -154,14 +189,15 @@ def main():
     app.config["EOW_ROOTDIR"] = realpath(args.root)
     app.config["EOW_KEYMAP"] = args.keymap
     app.config["EOW_PASSWORD"] = args.password
-    app.config["CSRF_TOKEN"] = make_secret()
+    app.config["EOW_CSRF_TOKEN"] = make_secret()
 
     if args.secret_key:
         app.secret_key = args.secret_key
     else:
         app.secret_key = make_secret()
 
-    #app.debug = True
+    if args.debug:
+        app.debug = True
 
     browser = args.browser.lower()
     if browser != "none":
