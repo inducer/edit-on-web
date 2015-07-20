@@ -220,6 +220,7 @@ function setup_saving()
     req.done(function(data, text_status, xhr)
         {
           set_message("progress", "Saved "+eow_info.filename+".")
+          codemirror_instance.markClean();
         });
 
     req.fail(function(xhr, text_status, err_thrown)
@@ -227,8 +228,6 @@ function setup_saving()
           set_message("progress", "Error saving "+eow_info.filename+": "+err_thrown
               +"<pre>"+escape_html(xhr.responseText)+"</pre>")
         });
-
-    codemirror_instance.markClean();
   }
 
   $(".save-button").on("click", save);
