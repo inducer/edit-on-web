@@ -9,7 +9,7 @@ def main():
         readme = inf.read()
 
     setup(name="eow",
-          version="2015.1.2",
+          version="2015.1.3",
           description="Edit local files in CodeMirror",
           long_description=readme,
           author=u"Andreas Kloeckner",
