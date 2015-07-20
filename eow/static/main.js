@@ -74,7 +74,6 @@ function setup_messages()
 function setup_codemirror()
 {
   var cm_config = {
-    mode: eow_mimetype,
     value: eow_content,
     fixedGutter: true,
     lineNumbers: true,
@@ -98,11 +97,27 @@ function setup_codemirror()
 
   if (eow_keymap == "vim")
     cm_config["vimMode"] = true;
+  else if (eow_keymap == "default")
+  {
+    /* do nothing */
+  }
   else if (eow_keymap != "")
     cm_config["keyMap"] = eow_keymap;
 
-  var editor_dom = $("#editor").get(0)
+  var editor_dom = document.getElementById("editor")
   codemirror_instance = CodeMirror(editor_dom, cm_config);
+
+  if (m = /.+\.([^.]+)$/.exec(eow_filename)) {
+    var info = CodeMirror.findModeByExtension(m[1]);
+    if (info) {
+      mode = info.mode;
+      spec = info.mime;
+      codemirror_instance.setOption("mode", spec);
+      CodeMirror.autoLoadMode(codemirror_instance, mode);
+      set_message("debug", "Autodetected mode: "+info.mode);
+    }
+  }
+
 }
 
 // }}}
@@ -189,10 +204,10 @@ function setup_saving()
 
 function setup()
 {
+  setup_messages();
   setup_codemirror();
   activate_change_listening();
   setup_saving();
-  setup_messages();
 }
 
 $(document).ready(setup);

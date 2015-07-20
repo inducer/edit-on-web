@@ -1,8 +1,20 @@
 #! /usr/bin/env python
 
+from __future__ import division, print_function
+
 from flask import (Flask, render_template, flash, Markup, request, make_response,
         session, redirect, url_for)
-app = Flask(__name__)
+
+
+def _find_eow_data_path(subdir):
+    from pkg_resources import Requirement, resource_filename
+    return resource_filename(Requirement.parse("eow"), "eow/"+subdir)
+
+app = Flask(
+        __name__,
+        static_folder=_find_eow_data_path("static"),
+        template_folder=_find_eow_data_path("templates")
+        )
 
 
 # {{{ allowed networks
@@ -96,18 +108,16 @@ def edit(filename):
         with open(full_path, encoding="utf-8") as inf:
             content = inf.read()
     except IOError:
-        flash("File not found. New file will be created when saved.")
+        flash("File not found. New file will be created when saving.")
         content = u""
 
     keymap = app.config["EOW_KEYMAP"]
 
-    from mimetypes import guess_type
     from urllib import quote
     return render_template('edit.html',
             content=Markup(quote(content)),
             filename=filename,
             filename_encoded=Markup(quote(filename)),
-            mimetype=guess_type(filename)[0],
             keymap=keymap if keymap else "",
             csrf_token=app.config["EOW_CSRF_TOKEN"])
 
@@ -159,13 +169,13 @@ def main():
 
     parser = ArgumentParser(
             description='Edit files in a local directory using CodeMirror')
-    parser.add_argument('--host', metavar="HOST", default="127.0.0.1")
-    parser.add_argument('--port', default=9113, type=int)
+    parser.add_argument('-H', '--host', metavar="HOST", default="127.0.0.1")
+    parser.add_argument('-P', '--port', default=9113, type=int)
     parser.add_argument('--secret-key')
     parser.add_argument(
             "--browser", default="default",
             help="Type of web browser to launch (or 'none')")
-    parser.add_argument('--password',
+    parser.add_argument('-p', '--password',
             help="Set a password required for editing")
     parser.add_argument('--allow-ip', nargs='*',
             help="Allow a given set of hosts and/or networks",
@@ -174,10 +184,10 @@ def main():
             help="Root directory exposed by the editor",
             metavar="DIRECTORY")
     parser.add_argument('--debug', action="store_true")
-    parser.add_argument('--keymap',
-            help="Keymap to use (vim, emacs, sublime, or none)",
+    parser.add_argument('-k', '--keymap',
+            help="Keymap to use (vim, emacs, sublime, or default)",
             metavar="KEYMAP")
-    parser.add_argument("files", metavar="FILES", nargs='*')
+    parser.add_argument("files", metavar="FILE", nargs='*')
 
     args = parser.parse_args()
 

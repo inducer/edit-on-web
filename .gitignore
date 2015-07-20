@@ -1,2 +1,7 @@
 *~
 .*.sw[op]
+build
+__pycache__
+*.pyc
+
+*.egg-info

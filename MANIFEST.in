@@ -1,0 +1,7 @@
+include eow/templates/*.html
+include eow/static/*.js
+include eow/static/*.css
+
+include README.rst
+
+recursive-include eow/static/codemirror *.js *.css
