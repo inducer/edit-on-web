@@ -171,7 +171,8 @@ function setup_codemirror()
     $(".CodeMirror").css("font-family", eow_info.font_family);
     codemirror_instance.refresh();
   }
-  if (eow_info.font_family)
+
+  if (eow_info.read_only)
     set_message("warning", "Opened document in read-only mode.");
 
   last_saved_generation = eow_info.generation;
