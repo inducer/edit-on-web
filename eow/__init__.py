@@ -17,6 +17,16 @@ app = Flask(
         )
 
 
+class Unauthorized(Exception):
+    status_code = 403
+
+
+@app.errorhandler(Unauthorized)
+def handle_unauthorized(error):
+    return make_response("%s: %s" % (
+        type(error).__name__, str(error)), error.status_code)
+
+
 # {{{ allowed networks
 
 class AllowedNetworksMiddleware(object):
@@ -26,11 +36,10 @@ class AllowedNetworksMiddleware(object):
 
     def __call__(self, environ, start_response):
         if self.allowed_networks:
-            from paste.httpexceptions import HTTPForbidden
             try:
                 remote_addr_str = environ["REMOTE_ADDR"]
             except KeyError:
-                raise HTTPForbidden("REMOTE_ADDR not found, "
+                raise Unauthorized("REMOTE_ADDR not found, "
                         "but allowed_networks was specified")
 
             from ipaddr import IPAddress
@@ -44,7 +53,7 @@ class AllowedNetworksMiddleware(object):
                     break
 
             if not allowed:
-                raise HTTPForbidden("Requests from your address aren't allowed")
+                raise Unauthorized("Requests from your address aren't allowed")
 
         return self.sub_app(environ, start_response)
 
@@ -65,7 +74,7 @@ def to_full_path(filename):
     real_full_path = realpath(join(root_dir, filename))
 
     if commonprefix((real_root_dir, real_full_path)) != real_root_dir:
-        raise RuntimeError("edited file must reside under given editor root")
+        raise Unauthorized("edited file must reside under given editor root")
 
     return full_path
 
@@ -133,14 +142,14 @@ def edit(filename):
 def save():
     if (app.config["EOW_PASSWORD"]
             and not session.get("authenticated", False)):
-        raise RuntimeError("not authenticated")
+        raise Unauthorized("not authenticated")
 
     from codecs import open
 
     data = request.get_json()
 
     if data["csrf_token"] != app.config["EOW_CSRF_TOKEN"]:
-        raise RuntimeError("invalid CSRF token")
+        raise Unauthorized("invalid CSRF token")
 
     full_path = to_full_path(data["filename"])
     content = data["content"]
@@ -212,6 +221,10 @@ def main():
         app.wsgi_app = AllowedNetworksMiddleware(args.allow_ip)
 
     from os.path import realpath
+
+    # This makes it safe to run multiple instances at a single IP
+    # without having them trample each other's auth data.
+    app.config["SESSION_COOKIE_NAME"] = "EOW_SESSION_PORT%d" % args.port
 
     app.config["EOW_ROOTDIR"] = realpath(args.root)
     app.config["EOW_KEYMAP"] = args.keymap
