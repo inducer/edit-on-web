@@ -148,7 +148,14 @@ def save():
     backup_name = full_path+"~"
 
     from os import rename
-    rename(full_path, backup_name)
+    import errno
+    try:
+        rename(full_path, backup_name)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            pass
+        else:
+            raise
 
     try:
         with open(full_path, "w", encoding="utf-8") as outf:
