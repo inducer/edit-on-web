@@ -96,7 +96,6 @@ function setup_codemirror()
 
             if (codemirror_instance.somethingSelected())
             {
-              set_message("debug", "multisel wrap")
               var sels = codemirror_instance.listSelections();
               for (var i = 0; i < sels.length; ++sels)
               {
@@ -110,7 +109,7 @@ function setup_codemirror()
                   anchor = temp;
                 }
 
-                codemirror_instance.wrapParagraphsInRange(anchor, head, wrap_options);
+                codemirror_instance.wrapRange(anchor, head, wrap_options);
               }
             }
             else
