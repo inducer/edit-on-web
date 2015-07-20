@@ -6,7 +6,7 @@ This program provides just enough glue to use the excellent `CodeMirror
 
 Do the following::
 
-    pip install edit-on-web
+    pip install eow
 
     eow --keymap=vim --password=mypassword file-to-edit.txt
 
