@@ -86,7 +86,7 @@ function setup_codemirror()
     value: eow_info.content,
     fixedGutter: true,
     theme: theme,
-    lineNumbers: true,
+    lineNumbers: eow_info.show_line_numbers,
     autofocus: true,
     matchBrackets: true,
     styleActiveLine: true,

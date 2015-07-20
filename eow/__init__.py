@@ -134,20 +134,16 @@ def edit(filename):
         content = u""
 
     generation = FILENAME_TO_LAST_SAVED_GENERATION.setdefault(filename, 0)
-    keymap = app.config["EOW_KEYMAP"]
 
     from json import dumps
-    info = {
+    info = app.config["EOW_INFO_BASE"].copy()
+    info.update({
             "content": content,
             "filename": filename,
             "read_only": "readonly" in request.args,
-            "keymap": keymap,
             "generation": generation,
             "csrf_token": app.config["EOW_CSRF_TOKEN"],
-            "wrap_lines": app.config["EOW_WRAP_LINES"],
-            "hide_save_button": app.config["EOW_HIDE_SAVE_BUTTON"],
-            "font_family": app.config["EOW_FONT_FAMILY"],
-            }
+            })
     return render_template('edit.html',
             filename=filename,
             info=Markup(dumps(info))
@@ -234,6 +230,7 @@ def main():
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--wrap-lines', action="store_true")
     parser.add_argument('--hide-save-button', action="store_true")
+    parser.add_argument('--show-line-numbers', action="store_true")
     parser.add_argument('--font-family')
     parser.add_argument('-k', '--keymap',
             help="Keymap to use (vim, emacs, sublime, or default)",
@@ -252,12 +249,16 @@ def main():
     app.config["SESSION_COOKIE_NAME"] = "EOW_SESSION_PORT%d" % args.port
 
     app.config["EOW_ROOTDIR"] = realpath(args.root)
-    app.config["EOW_KEYMAP"] = args.keymap
     app.config["EOW_PASSWORD"] = args.password
     app.config["EOW_CSRF_TOKEN"] = make_secret()
-    app.config["EOW_WRAP_LINES"] = args.wrap_lines
-    app.config["EOW_HIDE_SAVE_BUTTON"] = args.hide_save_button
-    app.config["EOW_FONT_FAMILY"] = args.font_family
+
+    app.config["EOW_INFO_BASE"] = {
+            "keymap": args.keymap,
+            "hide_save_button": args.hide_save_button,
+            "font_family": args.font_family,
+            "wrap_lines": args.wrap_lines,
+            "show_line_numbers": args.show_line_numbers,
+            }
 
     if args.secret_key:
         app.secret_key = args.secret_key
