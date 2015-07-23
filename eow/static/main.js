@@ -98,7 +98,7 @@ function setup_codemirror()
     extraKeys:
         {
           "Ctrl-/": "toggleComment",
-          "Ctrl-P": function(cm)
+          "Ctrl-\\": function(cm)
           {
             var wrap_options = {
               wrapOn: /\s\S/,
