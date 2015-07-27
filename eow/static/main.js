@@ -73,13 +73,9 @@ function setup_messages()
 
 // {{{ sub-editor
 
-function run_subeditor(cm)
+function run_subeditor(cm, initial_text, selection, success_callback)
 {
-  if (codemirror_instance.somethingSelected())
-    $("#subeditor").val(
-        cm.getSelections().join("\n"));
-  else
-    $("#subeditor").val("");
+  $("#subeditor").val(initial_text);
 
   cm.setOption("readOnly", "nocursor");
 
@@ -87,9 +83,21 @@ function run_subeditor(cm)
   $("#editbox").show();
   $("#subeditor").focus();
 
+  var textarea = $("#subeditor").get(0);
+
+  if (selection != null)
+  {
+    textarea.setSelectionRange(selection.start, selection.end);
+  }
+
   function save(evt)
   {
-    cm.replaceSelection($("#subeditor").val(), "around");
+    success_callback(
+        $("#subeditor").val(),
+        {
+          start: textarea.selectionStart,
+          end: textarea.selectionEnd
+        });
     close_subeditor();
   }
 
@@ -124,10 +132,25 @@ function run_subeditor(cm)
     cm.setOption("readOnly", false);
     cm.focus();
 
-    $("#subeditor").off("keypress", handle_keypress);
+    $("#subeditor").off("keypress", handle_keydown);
     $("#subeditor_save").off("click", save);
     $("#subeditor_cancel").off("click", cancel);
   }
+}
+
+function run_subeditor_on_selection(cm)
+{
+  var initial_text;
+  if (codemirror_instance.somethingSelected())
+    initial_text = cm.getSelections().join("\n");
+  else
+    initial_text = "";
+
+  run_subeditor(cm, initial_text, null,
+      function(new_text)
+      {
+        cm.replaceSelection(new_text, "around");
+      });
 }
 
 function run_subeditor_on_paragraph(cm)
@@ -151,9 +174,86 @@ function run_subeditor_on_paragraph(cm)
   while (pend < nlines - 1 && cm.getLine(pend) != "")
     pend += 1;
 
-  cm.setSelection({line: pstart, ch: 0}, {line: pend, ch: 0});
-  run_subeditor(cm);
+  var sel_start;
+  var sel_end;
+
+  if (codemirror_instance.somethingSelected())
+  {
+    var sels = codemirror_instance.listSelections();
+    sel_start = sels[0].anchor;
+    sel_end = sels[0].head;
+  }
+  else
+  {
+    sel_start = cursor;
+    sel_end = cursor;
+  }
+
+  var initial_text = "";
+  var line_nr = pstart;
+  var sel_start_idx = 0;
+  var sel_end_idx = 0;
+
+  cm.eachLine(pstart, pend,
+      function (linehdl)
+      {
+        initial_text += linehdl.text + "\n";
+
+        if (line_nr < sel_start.line)
+          sel_start_idx += linehdl.text.length + 1;
+        else if (line_nr == sel_start.line)
+          sel_start_idx += sel_start.ch;
+
+        if (line_nr < sel_end.line)
+          sel_end_idx += linehdl.text.length + 1;
+        else if (line_nr == sel_end.line)
+          sel_end_idx += sel_end.ch;
+
+        line_nr += 1;
+      });
+
+  function get_line_ch_for_offset(s, idx, line_offset)
+  {
+    var line = line_offset;
+    var ch = ch;
+
+    for (var i = 0; i < s.length; ++i)
+    {
+      if (idx == i)
+        break;
+      if (s[i] == "\n")
+      {
+        line += 1;
+        ch = 0;
+      }
+      else
+        ch += 1
+    }
+
+    return {line: line, ch: ch};
+  }
+
+  run_subeditor(cm, initial_text,
+      {start: sel_start_idx, end: sel_end_idx},
+      function(new_text, selection)
+      {
+        cm.setSelection({line: pstart, ch: 0}, {line: pend, ch: 0});
+        cm.replaceSelection(new_text, "around");
+
+        if (selection.start == selection.end)
+        {
+          cm.setCursor(get_line_ch_for_offset(new_text, selection.start, pstart));
+        }
+        else
+        {
+          cm.setSelection(
+              get_line_ch_for_offset(new_text, selection.start, pstart),
+              get_line_ch_for_offset(new_text, selection.end, pstart));
+        }
+      });
 }
+
+// }}}
 
 // {{{ codemirror setup
 
@@ -213,7 +313,7 @@ function setup_codemirror()
                   codemirror_instance.getCursor(), wrap_options);
           },
 
-          "F2": run_subeditor,
+          "F2": run_subeditor_on_selection,
           "F3": run_subeditor_on_paragraph,
 
           "Tab": function(cm)
