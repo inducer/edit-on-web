@@ -1,6 +1,6 @@
-<!doctype html>
-<head>
-  <title>{{ filename }} - Edit-on-Web</title>
+{% extends "base.html" %}
+{% block title %}{{ filename }}{% endblock %}
+{% block header_extra %}
   <link href="{{ url_for('static', filename='codemirror/lib/codemirror.css') }}" type="text/css" media="all" rel="stylesheet" />
   <link href="{{ url_for('static', filename='codemirror/addon/dialog/dialog.css') }}" type="text/css" media="all" rel="stylesheet" />
   <link href="{{ url_for('static', filename='codemirror/addon/search/matchesonscrollbar.css') }}" type="text/css" media="all" rel="stylesheet" />
@@ -31,11 +31,10 @@
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/emacs.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/sublime.js') }}"></script>
 
-  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
-
   <script type="text/javascript" src="{{ url_for('static',  filename='main.js') }}"></script>
-</head>
-<body>
+{% endblock %}
+{% block body %}
+
   <div id="root">
     <div id="editor"></div>
     <div id="button_bar">
@@ -73,5 +72,4 @@
   <script type="text/javascript">
     var eow_info = {{ info }};
   </script>
-</body>
-<!-- vim:foldmethod=marker -->
+{% endblock %}

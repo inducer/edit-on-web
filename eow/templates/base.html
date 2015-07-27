@@ -1,0 +1,32 @@
+<!doctype html>
+<head>
+  <title>{% block title %}Page Title{% endblock%} - Edit-on-Web</title>
+
+  <link href="{{ url_for('static', filename='font-awesome/css/font-awesome.min.css') }}" type="text/css" media="all" rel="stylesheet" />
+
+  <script type="text/javascript" src="{{ url_for('static',  filename='jquery-2.1.4.js') }}"></script>
+
+  {% block header_extra %}
+  {% endblock %}
+
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  {% block messages %}
+
+    {% with msg=get_flashed_messages() %}
+      {% if msg %}
+        <ul>
+          {% for message in msg %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+  {% endblock %}
+
+  {% block body %}
+  {% endblock%}
+</body>

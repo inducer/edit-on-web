@@ -5,3 +5,5 @@ include eow/static/*.css
 include README.rst
 
 recursive-include eow/static/codemirror *.js *.css
+include eow/static/font-awesome/css/*.min.css
+include eow/static/font-awesome/fonts/*

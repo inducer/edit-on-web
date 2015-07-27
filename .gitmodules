@@ -1,3 +1,6 @@
 [submodule "eow/static/codemirror"]
 	path = eow/static/codemirror
 	url = https://github.com/codemirror/CodeMirror.git
+[submodule "eow/static/font-awesome"]
+	path = eow/static/font-awesome
+	url = https://github.com/FortAwesome/Font-Awesome

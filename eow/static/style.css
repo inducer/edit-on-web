@@ -1,3 +1,7 @@
+body {
+  font-family: sans-serif;
+}
+
 #root {
   position: absolute;
   top: 0;
@@ -107,6 +111,29 @@
 }
 
 #editbox_buttonbar {
+}
+
+/* }}} */
+
+/* {{{ dirlist */
+
+ul.dirlist {
+  list-style-type: none;
+  list-style-position: none;
+  font-family: monospace;
+}
+
+ul.dirlist a {
+  text-decoration: none;
+  color: black;
+}
+
+ul.dirlist a:hover {
+  text-decoration: underline;
+}
+
+ul.dirlist a:visited {
+  color: purple;
 }
 
 /* }}} */

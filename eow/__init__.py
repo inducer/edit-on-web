@@ -72,7 +72,7 @@ class AllowedNetworksMiddleware(object):
 
 @app.route("/")
 def root():
-    return "Append <tt>/e/filename.txt</tt> to the URL to start editing."
+    return redirect(url_for('.browse', pathname=None))
 
 
 def to_full_path(filename):
@@ -110,6 +110,52 @@ def log_out():
         session["authenticated"] = False
 
     return render_template('logout.html')
+
+
+@app.route("/b/")
+@app.route("/b/<path:pathname>")
+def browse(pathname=None):
+    if (app.config["EOW_PASSWORD"]
+            and not session.get("authenticated", False)):
+        return redirect(
+                url_for('.log_in')
+                + "?next="+url_for('.browse', pathname=pathname))
+
+    if pathname is None:
+        pathname = "."
+    elif not pathname.endswith("/"):
+        return redirect(url_for('.browse', pathname=pathname+"/"))
+
+    full_path = to_full_path(pathname)
+
+    dir_entries = []
+    file_entries = []
+
+    import os
+    from os.path import isdir, join, dirname
+    for fname in os.listdir(full_path):
+        fname = fname.decode("utf-8")
+        full_sub = join(full_path, fname)
+        if isdir(full_sub):
+            dir_entries.append(
+                    ("folder", fname,
+                        url_for('.browse', pathname=join(pathname, fname))))
+        else:
+            file_entries.append(
+                    ("file-o", fname,
+                        url_for('.edit', filename=join(pathname, fname))))
+
+    up_pathname = dirname(pathname[:-1])
+    if not up_pathname:
+        up_pathname = None
+    return render_template('browse.html',
+            path=pathname,
+            file_info=(
+                sorted(dir_entries, key=lambda (_, fname, __): fname)
+                +
+                sorted(file_entries, key=lambda (_, fname, __): fname)),
+            up_url=url_for('.browse', pathname=up_pathname)
+            )
 
 
 FILENAME_TO_LAST_SAVED_GENERATION = {}

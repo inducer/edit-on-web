@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ path }} - File Browser{% endblock %}
+{% block body %}
+  <h1>Files in <tt>{{ path }}</tt></h1>
+  <ul class="dirlist">
+    {% if up_url %}
+      <li><a href="{{ up_url }}"><i class="fa fa-level-up"></i> Up </a></li>
+    {% endif %}
+    {% for ftype, filename, url in file_info %}
+    <li><a href="{{ url }}"><i class="fa fa-{{ ftype }}"></i> {{ filename }}</a></li>
+    {% endfor %}
+  </ul>
+{% endblock %}

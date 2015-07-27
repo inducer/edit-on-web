@@ -9,7 +9,7 @@ def main():
         readme = inf.read()
 
     setup(name="eow",
-          version="2015.1.5",
+          version="2015.2",
           description="Edit local files in CodeMirror",
           long_description=readme,
           author=u"Andreas Kloeckner",
@@ -34,6 +34,8 @@ def main():
                       'static/codemirror/*/*.css',
                       'static/codemirror/*/*/*.js',
                       'static/codemirror/*/*/*.css',
+                      'static/font-awesome/css/*.min.css',
+                      'static/font-awesome/fonts/*',
                       ],
                   }
           )
