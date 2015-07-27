@@ -71,6 +71,22 @@ function setup_messages()
 
 // }}}
 
+// {{{ utilities
+
+function get_cm_scroll_area(cm)
+{
+  var scroll_info = codemirror_instance.getScrollInfo();
+
+  return {
+      left: scroll_info.left,
+      top: scroll_info.top,
+      bottom: scroll_info.top + scroll_info.clientHeight,
+      right: scroll_info.left + scroll_info.clientWidth
+    };
+}
+
+// }}}
+
 // {{{ sub-editor
 
 function run_subeditor(cm, initial_text, selection, success_callback)
@@ -85,8 +101,33 @@ function run_subeditor(cm, initial_text, selection, success_callback)
 
   var textarea = $("#subeditor").get(0);
 
+  function get_position(dom_node)
+  {
+    var left = 0, top = 0;
+    do
+    {
+      left += dom_node.offsetLeft;
+      top += dom_node.offsetTop;
+    } while (dom_node = dom_node.offsetParent);
+    return {left: left, top: top};
+  }
+
   if (selection != null)
   {
+    var edit_top = get_position(textarea).top;
+
+    textarea.value = initial_text.substring(0, selection.start);
+    textarea.focus();
+    textarea.scrollTop = 100000000; // huge
+
+    var cur_scroll_top = textarea.scrollTop;
+    textarea.value = initial_text;
+
+    if(cur_scroll_top > 0)
+    {
+      textarea.scrollTop = cur_scroll_top + textarea.offsetHeight/2;
+    }
+
     textarea.setSelectionRange(selection.start, selection.end);
   }
 
@@ -153,26 +194,12 @@ function run_subeditor_on_selection(cm)
       });
 }
 
-function run_subeditor_on_paragraph(cm)
+function run_subeditor_on_document(cm)
 {
   var cursor = cm.getCursor();
 
-  var startline = cursor.line;
-  while (startline >= 1 && cm.getLine(startline) == "")
-    startline -= 1;
-
-  var pstart = startline;
-  while (pstart >= 1 && cm.getLine(pstart) != "")
-    pstart -= 1;
-
-  if (pstart < startline)
-    pstart += 1;
-
-  var nlines = cm.lineCount();
-
-  var pend = startline;
-  while (pend < nlines - 1 && cm.getLine(pend) != "")
-    pend += 1;
+  var pstart = 0;
+  var pend = cm.lineCount();
 
   var sel_start;
   var sel_end;
@@ -233,6 +260,8 @@ function run_subeditor_on_paragraph(cm)
     return {line: line, ch: ch};
   }
 
+  var scroll_area = get_cm_scroll_area(cm);
+
   run_subeditor(cm, initial_text,
       {start: sel_start_idx, end: sel_end_idx},
       function(new_text, selection)
@@ -240,6 +269,7 @@ function run_subeditor_on_paragraph(cm)
         cm.setSelection({line: pstart, ch: 0}, {line: pend, ch: 0});
         cm.replaceSelection(new_text, "around");
 
+        cm.scrollIntoView(scroll_area);
         if (selection.start == selection.end)
         {
           cm.setCursor(get_line_ch_for_offset(new_text, selection.start, pstart));
@@ -314,7 +344,7 @@ function setup_codemirror()
           },
 
           "F2": run_subeditor_on_selection,
-          "F3": run_subeditor_on_paragraph,
+          "F3": run_subeditor_on_document,
 
           "Tab": function(cm)
           {
@@ -384,16 +414,9 @@ function setup_codemirror()
 
 function save_editor_position()
 {
-  var scroll_info = codemirror_instance.getScrollInfo();
-
   localStorage[storage_key] = JSON.stringify({
     cursor: codemirror_instance.getCursor(),
-    scroll_area: {
-      left: scroll_info.left,
-      top: scroll_info.top,
-      bottom: scroll_info.top + scroll_info.clientHeight,
-      right: scroll_info.left + scroll_info.clientWidth
-    }
+    scroll_area: get_cm_scroll_area(codemirror_instance)
   });
 }
 

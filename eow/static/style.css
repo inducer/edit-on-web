@@ -84,7 +84,7 @@
 #editbox {
   position: absolute;
 
-  top: 20%;
+  top: 5%;
   left: 5%;
   width: 90%;
   z-index: 210;
@@ -102,7 +102,7 @@
   position: relative;
   font-size: 135%;
 
-  height: 50vh;
+  height: 85vh;
   width: calc(100% - 10px);
 }
 
