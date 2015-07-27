@@ -41,6 +41,10 @@
     <div id="button_bar">
       <button class="save-button" accesskey="s">Save</button> (<b>Alt+(Shift-)s)</b>)
       &middot;
+      F2: Open <tt>textarea</tt>sub-editor
+      &middot;
+      F3: Open sub-editor on paragraph
+      &middot;
       <tt>{{ filename }}</tt>
     </div>
 
@@ -52,6 +56,18 @@
         <li>{{ message }}</li>
       {% endfor %}
     </ul>
+  </div>
+
+  <div id="dimming_overlay">
+  </div>
+
+  <div id="editbox">
+    <textarea id="subeditor">
+    </textarea>
+    <div id="editbox_buttonbar">
+      <button id="subeditor_save">Save</button> (<b>Ctrl-Enter</b>)
+      <button id="subeditor_cancel">Cancel</button> (<b>Esc</b>)
+    </div>
   </div>
 
   <script type="text/javascript">

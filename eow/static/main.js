@@ -71,6 +71,90 @@ function setup_messages()
 
 // }}}
 
+// {{{ sub-editor
+
+function run_subeditor(cm)
+{
+  if (codemirror_instance.somethingSelected())
+    $("#subeditor").val(
+        cm.getSelections().join("\n"));
+  else
+    $("#subeditor").val("");
+
+  cm.setOption("readOnly", "nocursor");
+
+  $("#dimming_overlay").show();
+  $("#editbox").show();
+  $("#subeditor").focus();
+
+  function save(evt)
+  {
+    cm.replaceSelection($("#subeditor").val(), "around");
+    close_subeditor();
+  }
+
+  function cancel(evt)
+  {
+    close_subeditor();
+  }
+
+  function handle_keydown(evt)
+  {
+    if (evt.keyCode == 13 && evt.ctrlKey && !evt.altKey)
+    {
+      evt.stopPropagation();
+      $("#subeditor_save").click();
+    }
+    else if (evt.keyCode == 27 && !evt.ctrlKey && !evt.altKey)
+    {
+      evt.stopPropagation();
+      $("#subeditor_cancel").click();
+    }
+  }
+
+  $("#subeditor").on("keydown", handle_keydown);
+  $("#subeditor_save").on("click", save);
+  $("#subeditor_cancel").on("click", cancel);
+
+  function close_subeditor()
+  {
+    $("#dimming_overlay").hide();
+    $("#editbox").hide();
+
+    cm.setOption("readOnly", false);
+    cm.focus();
+
+    $("#subeditor").off("keypress", handle_keypress);
+    $("#subeditor_save").off("click", save);
+    $("#subeditor_cancel").off("click", cancel);
+  }
+}
+
+function run_subeditor_on_paragraph(cm)
+{
+  var cursor = cm.getCursor();
+
+  var startline = cursor.line;
+  while (startline >= 1 && cm.getLine(startline) == "")
+    startline -= 1;
+
+  var pstart = startline;
+  while (pstart >= 1 && cm.getLine(pstart) != "")
+    pstart -= 1;
+
+  if (pstart < startline)
+    pstart += 1;
+
+  var nlines = cm.lineCount();
+
+  var pend = startline;
+  while (pend < nlines - 1 && cm.getLine(pend) != "")
+    pend += 1;
+
+  cm.setSelection({line: pstart, ch: 0}, {line: pend, ch: 0});
+  run_subeditor(cm);
+}
+
 // {{{ codemirror setup
 
 function setup_codemirror()
@@ -94,6 +178,7 @@ function setup_codemirror()
     lineWrapping: eow_info.wrap_lines,
     indentUnit: 2,
     undoDepth: 10000,
+
     readOnly: eow_info.read_only,
     extraKeys:
         {
@@ -127,6 +212,10 @@ function setup_codemirror()
               codemirror_instance.wrapParagraph(
                   codemirror_instance.getCursor(), wrap_options);
           },
+
+          "F2": run_subeditor,
+          "F3": run_subeditor_on_paragraph,
+
           "Tab": function(cm)
           {
             var spaces =
@@ -172,6 +261,8 @@ function setup_codemirror()
   {
     $(".CodeMirror").css("font-family", eow_info.font_family);
     codemirror_instance.refresh();
+
+    $("#editbox").css("font-family", eow_info.font_family);
   }
 
   if (eow_info.read_only)
