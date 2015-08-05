@@ -393,6 +393,7 @@ function setup_codemirror()
     codemirror_instance.refresh();
 
     $("#editbox").css("font-family", eow_info.font_family);
+    $("#editbox textarea").css("font-family", eow_info.font_family);
   }
 
   if (eow_info.read_only)

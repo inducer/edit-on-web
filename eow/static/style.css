@@ -104,7 +104,7 @@ body {
 
 #editbox textarea {
   position: relative;
-  font-size: 135%;
+  font-size: 115%;
 
   height: 85vh;
   width: calc(100% - 10px);
