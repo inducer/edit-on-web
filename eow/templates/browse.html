@@ -6,8 +6,30 @@
     {% if up_url %}
       <li><a href="{{ up_url }}"><i class="fa fa-level-up"></i> Up </a></li>
     {% endif %}
+    <li>
+      <form>
+        <label for="new_file_name">New File:<label>
+        <input type="text" id="new_file_name">
+        <a id="new_file_link" href="#" style="background-color:#eee; padding: 3px;">Create file</a>
+      </form>
+    </li>
     {% for ftype, filename, url in file_info %}
     <li><a href="{{ url }}"><i class="fa fa-{{ ftype }}"></i> {{ filename }}</a></li>
     {% endfor %}
   </ul>
+
+  <script type="text/javascript">
+    function update_url()
+    {
+      var new_url = "{{ edit_root }}"+$("#new_file_name").val();
+      $("a#new_file_link").get(0).href = new_url;
+    }
+
+    function setup()
+    {
+      $("#new_file_name").on("blur", update_url);
+    }
+
+    $(document).ready(setup);
+  </script>
 {% endblock %}

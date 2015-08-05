@@ -123,8 +123,13 @@ def browse(pathname=None):
 
     if pathname is None:
         pathname = "."
+        edit_root = url_for(".edit", filename="")
+
     elif not pathname.endswith("/"):
         return redirect(url_for('.browse', pathname=pathname+"/"))
+
+    else:
+        edit_root = url_for(".edit", filename=pathname)
 
     full_path = to_full_path(pathname)
 
@@ -150,6 +155,7 @@ def browse(pathname=None):
         up_pathname = None
     return render_template('browse.html',
             path=pathname,
+            edit_root=edit_root,
             file_info=(
                 sorted(dir_entries, key=lambda (_, fname, __): fname)
                 +
