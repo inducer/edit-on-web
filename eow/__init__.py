@@ -190,7 +190,13 @@ def edit(filename):
     from json import dumps
     info = app.config["EOW_INFO_BASE"].copy()
     info.update({
-            "content": content,
+            "content": (
+                content
+                # Break up stray 'script' tags which can prematurely end the JS.
+                # Assumes that these only occur within string literals, and that
+                # those are delimited by double quotes.
+                .replace("</script>", "</scr\"+\"ipt>")
+                ),
             "filename": filename,
             "read_only": "readonly" in request.args,
             "generation": generation,
