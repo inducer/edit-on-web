@@ -20,6 +20,7 @@ def main():
           install_requires=[
               "flask",
               "ipaddr",
+              "simplejson",
               ],
 
           scripts=["bin/eow"],
