@@ -144,7 +144,10 @@ function run_subeditor(cm, initial_text, selection, success_callback)
 
   function cancel(evt)
   {
-    close_subeditor();
+    if (confirm("Close sub-editor without transfering changes?"))
+    {
+      close_subeditor();
+    }
   }
 
   function handle_keydown(evt)
