@@ -9,7 +9,7 @@ def main():
         readme = inf.read()
 
     setup(name="eow",
-          version="2015.2",
+          version="2015.3",
           description="Edit local files in CodeMirror",
           long_description=readme,
           author=u"Andreas Kloeckner",
@@ -17,9 +17,15 @@ def main():
           license="MIT",
           zip_safe=False,
 
+          classifiers=[
+              'License :: OSI Approved :: MIT License',
+              'Natural Language :: English',
+              'Programming Language :: Python :: 3',
+              'Programming Language :: Python :: 3.2',
+              'Programming Language :: Python :: 3.3',
+              ],
           install_requires=[
               "flask",
-              "ipaddr",
               "simplejson",
               ],
 

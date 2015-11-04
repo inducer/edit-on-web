@@ -52,12 +52,13 @@ class AllowedNetworksMiddleware(object):
                 raise Unauthorized("REMOTE_ADDR not found, "
                         "but allowed_networks was specified")
 
-            from ipaddr import IPAddress
-            remote_addr = IPAddress(remote_addr_str)
+            from ipaddress import ip_address
+            remote_addr = ip_address(remote_addr_str)
 
             allowed = False
 
             for an in self.allowed_networks:
+                print(remote_addr, an, remote_addr in an)
                 if remote_addr in an:
                     allowed = True
                     break
@@ -139,7 +140,6 @@ def browse(pathname=None):
     import os
     from os.path import isdir, join, dirname
     for fname in os.listdir(full_path):
-        fname = fname.decode("utf-8")
         full_sub = join(full_path, fname)
         if isdir(full_sub):
             dir_entries.append(
@@ -157,9 +157,9 @@ def browse(pathname=None):
             path=pathname,
             edit_root=edit_root,
             file_info=(
-                sorted(dir_entries, key=lambda (_, fname, __): fname)
+                sorted(dir_entries, key=lambda tup: tup[1])
                 +
-                sorted(file_entries, key=lambda (_, fname, __): fname)),
+                sorted(file_entries, key=lambda tup: tup[1])),
             up_url=url_for('.browse', pathname=up_pathname)
             )
 
@@ -294,7 +294,10 @@ def main():
     args = parser.parse_args()
 
     if args.allow_ip:
-        app.wsgi_app = AllowedNetworksMiddleware(args.allow_ip)
+        from ipaddress import ip_network
+        app.wsgi_app = AllowedNetworksMiddleware(
+                [ip_network(net) for net in args.allow_ip],
+                app.wsgi_app)
 
     from os.path import realpath
 
