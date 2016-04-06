@@ -421,7 +421,6 @@ function speech_commit_text()
       var at = fromto.to;
       cm.setCursor(at);
       var line_contents = cm.getLine(at.line);
-      console.log("trail:"+line_contents.slice(at.ch));
       if (at.ch == line_contents.length
           || !starts_with_whitespace(line_contents.slice(at.ch)))
         cm.replaceSelection(" ");
