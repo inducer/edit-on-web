@@ -24,6 +24,7 @@ var shown_msg_types = [
   "warning",
   "cmd",
   "progress",
+  "info",
 
   "state",
   "llprogress",
@@ -288,6 +289,269 @@ function run_subeditor_on_document(cm)
 
 // }}}
 
+// {{{ speech recognition
+
+var speech_recognition;
+var speech_started;
+var speech_transcript_buffer = "";
+
+function speech_update_indicator(flag)
+{
+  if (speech_started)
+    $("#speech_indicator").addClass("speech-on");
+  else
+  {
+    $("#speech_indicator").removeClass("speech-on");
+    $("#speech_audio_indicator i")
+      .removeClass("fa-volume-up")
+      .addClass("fa-volume-off")
+  }
+}
+
+
+function speech_toggle()
+{
+  if (!speech_recognition)
+    return;
+
+  speech_started = !speech_started;
+  if (speech_started)
+  {
+    speech_recognition.start();
+  }
+  else
+  {
+    speech_recognition.stop();
+  }
+  speech_update_indicator();
+}
+
+
+function speech_update_result(results, speech_skip_results)
+{
+  $("#speech_result").empty();
+
+  var span = $("<span></span>");
+  span.text(speech_transcript_buffer);
+  span.appendTo("#speech_result");
+
+  for (var iresult = speech_skip_results;
+      iresult < results.length; ++iresult)
+  {
+    var result = results.item(iresult);
+
+    if (result.length < 1)
+      continue;
+
+    var span = $("<span></span>");
+
+    if (!result.isFinal)
+    {
+      span.addClass("speech-not-final");
+    }
+
+    span.text(result[0].transcript);
+    span.appendTo("#speech_result");
+  }
+}
+
+
+function speech_process_new_final_results(final_result_str)
+{
+
+  if (speech_transcript_buffer.length == 0)
+  {
+    speech_transcript_buffer = (
+        final_result_str[0].toUpperCase()
+        +
+        final_result_str.slice(1));
+  }
+  else
+    speech_transcript_buffer += final_result_str;
+
+  var words = speech_transcript_buffer.split(" ");
+  var nwords = words.length;
+
+  function remove_words(n)
+  {
+    if (n > nwords)
+      n = nwords;
+    words = words.slice(0, nwords-n);
+    nwords -= n;
+    speech_transcript_buffer = words.join(" ");
+  }
+
+  function eat_command(cmd)
+  {
+    if (cmd.length >= nwords)
+    {
+      return false;
+    }
+
+    for (var i = 0; i < cmd.length; ++i)
+    {
+      if (cmd[i] != words[nwords-cmd.length+i].toLowerCase())
+        return false;
+    }
+
+    remove_words(cmd.length);
+
+    return true;
+  }
+
+  function delete_words(n)
+  {
+    set_message("debug", "[speech] delete "+n+" words");
+    remove_words(n);
+  }
+
+  if (eat_command(["transfer", "text"]))
+  {
+    set_message("debug", "[speech] transfer text");
+    codemirror_instance.replaceSelection(speech_transcript_buffer);
+    speech_transcript_buffer = "";
+  }
+  else if (eat_command(["scratch", "that"])
+      || eat_command(["scratch", "this"]))
+  {
+    set_message("debug", "[speech] scratch that");
+    speech_transcript_buffer = "";
+  }
+  else if (
+      eat_command(["delete", "word"])
+      || eat_command(["delete", "one", "word"])
+      || eat_command(["delete", "last", "word"])
+      )
+  { delete_words(1); }
+  else if (eat_command(["delete", "two", "words"])) { delete_words(2); }
+  else if (eat_command(["delete", "three", "words"])) { delete_words(3); }
+  else if (eat_command(["delete", "four", "words"])) { delete_words(4); }
+  else if (
+      eat_command(["delete", "five", "words"])
+      || eat_command(["delete", "v", "words"])
+      )
+  { delete_words(5); }
+  else if (eat_command(["delete", "six", "words"])) { delete_words(6); }
+  else if (eat_command(["delete", "7", "words"])) { delete_words(7); }
+  else if (eat_command(["go", "to", "sleep"]))
+  {
+    speech_toggle();
+  }
+  else if (eat_command(["uncap"]))
+  {
+    set_message("debug", "[speech] uncap");
+    speech_transcript_buffer = (
+        speech_transcript_buffer[0].toLowerCase()
+        +
+        speech_transcript_buffer.slice(1));
+  }
+}
+
+
+function setup_speech_recognition()
+{
+  if (!('webkitSpeechRecognition' in window))
+  {
+    set_message("warning", "Web Speech API not supported");
+  }
+  else
+  {
+    speech_recognition = new webkitSpeechRecognition();
+    speech_recognition.continuous = true;
+    speech_recognition.interimResults = true;
+    speech_recognition.lang = "en-US";
+
+    // FIXME: Language choice
+
+    var speech_skip_results;
+
+    speech_recognition.onstart = function()
+    {
+      // set_message("debug", "[speech] onstart");
+      speech_skip_results = 0;
+    }
+
+    speech_recognition.onend = function()
+    {
+      // set_message("debug", "[speech] onend");
+      if (speech_started)
+      {
+        speech_recognition.start();
+        speech_transcript_buffer += " ";
+      }
+    }
+
+    speech_recognition.onresult = function(event)
+    {
+      var results = event.results;
+
+      var final_result_str = "";
+      var final_result_count = 0;
+      var seen_non_final = false;
+
+      for (var iresult = speech_skip_results;
+          iresult < results.length; ++iresult)
+      {
+        var result = results.item(iresult);
+
+        if (result.isFinal && !seen_non_final)
+        {
+          if (result.length >= 1)
+            final_result_str += result[0].transcript;
+
+          final_result_count += 1;
+        }
+
+        if (!result.isFinal)
+          seen_non_final = true;
+      }
+
+      if (final_result_str.length)
+      {
+        speech_process_new_final_results(final_result_str);
+      }
+
+      speech_skip_results += final_result_count;
+
+      speech_update_result(results, speech_skip_results)
+    }
+
+    speech_recognition.onsoundstart = function()
+    {
+      if (speech_started)
+      {
+        $("#speech_audio_indicator i")
+          .removeClass("fa-volume-off")
+          .addClass("fa-volume-up");
+      }
+    }
+
+    speech_recognition.onsoundend = function()
+    {
+      if (speech_started)
+      {
+        $("#speech_audio_indicator i")
+          .removeClass("fa-volume-up")
+          .addClass("fa-volume-off");
+      }
+    }
+
+    speech_recognition.onerror = function(event)
+    {
+      set_message("debug", "Speech recognition error: " + event.error);
+    }
+
+    set_message("debug", "Web Speech API initialized.");
+    $("#speech_indicator_box").show();
+    $("#speech_indicator").click(speech_toggle);
+
+    speech_started = false;
+    speech_update_indicator();
+  }
+}
+
+// }}}
+
 // {{{ codemirror setup
 
 function setup_codemirror()
@@ -348,6 +612,7 @@ function setup_codemirror()
 
           "F2": run_subeditor_on_selection,
           "F3": run_subeditor_on_document,
+          "F4": speech_toggle,
 
           "Tab": function(cm)
           {
@@ -510,6 +775,7 @@ function setup()
       });
 
   setup_saving();
+  setup_speech_recognition();
 }
 
 $(document).ready(setup);

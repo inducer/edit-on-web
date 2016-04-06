@@ -44,6 +44,8 @@
       &middot;
       F3: Open sub-editor on document
       &middot;
+      F4: Toggle speech
+      &middot;
       <tt>{{ filename }}</tt>
     </div>
 
@@ -72,4 +74,15 @@
   <script type="text/javascript">
     var eow_info = {{ info }};
   </script>
+
+  <div id="speech_indicator_box">
+    <div style="float: right">
+      <button id="speech_indicator">
+        <i class="fa fa-microphone"></i>
+      </button>
+      <span id="speech_audio_indicator">
+        <i class="fa fa-volume-off"></i>
+      </span>
+    </div>
+  </div>
 {% endblock %}

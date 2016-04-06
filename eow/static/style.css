@@ -34,6 +34,43 @@ body {
   font-family: sans-serif;
 }
 
+/* {{{ speech */
+
+#speech_indicator_box {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: none;
+  font-size: x-large;
+  background-color: #ddd;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 10px;
+  z-index: 100;
+}
+
+#speech_indicator {
+  color: red;
+  font-size:x-large;
+  margin-left:5px;
+}
+
+#speech_indicator.speech-on {
+  color: green;
+}
+
+#speech_result {
+}
+
+#speech_result .speech-not-final {
+  color: #888;
+}
+
+/* }}} */
+
+/* {{{ messages */
+
 #message_box {
   position: absolute;
   bottom: 10px;
@@ -57,6 +94,10 @@ body {
   color: #888;
 }
 
+/* }}} */
+
+/* {{{ codemirror */
+
 .cm-trailingspace {
   background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QUXCToH00Y1UgAAACFJREFUCNdjPMDBUc/AwNDAAAFMTAwMDA0OP34wQgX/AQBYgwYEx4f9lQAAAABJRU5ErkJggg==);
   background-position: bottom left;
@@ -70,6 +111,8 @@ body {
 .CodeMirror.cm-s-eow-readonly {
   background-color: #e8e8e8;
 }
+
+/* }}} */
 
 /* {{{ editbox and overlay */
 
@@ -137,3 +180,5 @@ ul.dirlist a:visited {
 }
 
 /* }}} */
+
+/* vim: foldmethod=marker */
