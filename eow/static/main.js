@@ -86,7 +86,36 @@ function get_cm_scroll_area(cm)
     };
 }
 
+function trim_left(s)
+{
+  return s.replace(/^[\s\uFEFF\xA0]+/g, '');
+}
+
+
+function trim_right(s)
+{
+  return s.replace(/[\s\uFEFF\xA0]+$/g, '');
+}
+
+
+function starts_with_punctuation(s)
+{
+  return /^[-.!?;:]/.test(s);
+}
+
+
+function needs_uppercase_next(s)
+{
+  return /[.;:]\s*$/.test(s);
+}
+
+function starts_with_whitespace(s)
+{
+  return /^\s+/.test(s);
+}
+
 // }}}
+
 
 // {{{ sub-editor
 
@@ -326,6 +355,20 @@ function speech_stop()
 }
 
 
+function speech_toggle()
+{
+  if (!speech_recognition)
+    return;
+
+  if (!speech_started)
+    speech_start();
+  else
+    speech_stop();
+}
+
+
+// {{{ speech marker processing
+
 function speech_get_marker(marker)
 {
   if (marker == null)
@@ -367,14 +410,21 @@ function speech_clear_prelim_marker()
 
 function speech_commit_text()
 {
+  var cm = codemirror_instance;
+
   if (speech_phrase_final_marker)
   {
     var fromto = speech_phrase_final_marker.find();
     speech_phrase_final_marker.clear();
     if (fromto != null)
     {
-      codemirror_instance.setCursor(fromto.to);
-      codemirror_instance.replaceSelection(" ");
+      var at = fromto.to;
+      cm.setCursor(at);
+      var line_contents = cm.getLine(at.line);
+      console.log("trail:"+line_contents.slice(at.ch));
+      if (at.ch == line_contents.length
+          || !starts_with_whitespace(line_contents.slice(at.ch)))
+        cm.replaceSelection(" ");
     }
   }
   speech_clear_prelim_marker();
@@ -389,10 +439,6 @@ function speech_start_marker(s, className, at, atomic, revert_cursor)
   var cm = codemirror_instance;
   var cursor_at_start = cm.getCursor();
 
-  if (at == null)
-  {
-    at = cursor_at_start;
-  }
   var at_cursor = (at.ch == cursor_at_start.ch) && (at.line == cursor_at_start.line);
 
   var bm = cm.setBookmark(at, {insertLeft: true});
@@ -414,18 +460,38 @@ function speech_start_marker(s, className, at, atomic, revert_cursor)
 }
 
 
-function speech_update_final_marker(s)
+function speech_get_final_marker_start()
 {
+  var cm = codemirror_instance;
+
   var at;
   if (speech_phrase_final_marker != null)
-    at = speech_clear_marker(speech_phrase_final_marker);
+  {
+    var fromto = speech_phrase_final_marker.find();
+    if (fromto != null)
+      return fromto.from;
+  }
+  return cm.getCursor();
+}
 
-  speech_phrase_final_marker = speech_start_marker(s, "speech-final", at, false, false);
+
+function speech_update_final_marker(s)
+{
+  var cm = codemirror_instance;
+
+  var at = speech_get_final_marker_start();
+  if (speech_phrase_final_marker != null)
+    speech_clear_marker(speech_phrase_final_marker);
+
+  speech_phrase_final_marker = speech_start_marker(
+      s, "speech-final", at, false, false);
 }
 
 
 function speech_update_prelim_marker(s)
 {
+  var cm = codemirror_instance;
+
   var at, prior_at;
 
   if (speech_phrase_prelim_marker != null)
@@ -440,42 +506,19 @@ function speech_update_prelim_marker(s)
 
   if (at == null && prior_at != null)
     at = prior_at;
+  if (at == null)
+    at = cm.getCursor();
 
   speech_phrase_prelim_marker = speech_start_marker(s, "speech-prelim", at, true, true);
 }
 
+// }}}
 
-function speech_toggle()
-{
-  if (!speech_recognition)
-    return;
-
-  if (!speech_started)
-    speech_start();
-  else
-    speech_stop();
-}
-
-
-function trim_left(s)
-{
-  return s.replace(/^[\s\uFEFF\xA0]+/g, '');
-}
-
-
-function trim_right(s)
-{
-  return s.replace(/[\s\uFEFF\xA0]+$/g, '');
-}
-
-
-function starts_with_punctuation(s)
-{
-  return /^[-.!?;:]/.test(s);
-}
 
 function speech_process_new_final_results(final_result_str)
 {
+  var cm = codemirror_instance;
+
   var value = speech_get_marker(speech_phrase_final_marker);
 
   final_result_str = final_result_str.trim();
@@ -488,10 +531,19 @@ function speech_process_new_final_results(final_result_str)
   }
   else
   {
-    final_result_str = (
-      final_result_str[0].toUpperCase()
-      +
-      final_result_str.slice(1));
+    var inserting_at = speech_get_final_marker_start();
+    var inserting_linestart = {line: inserting_at.line, ch: 0};
+
+    var preceding = cm.getRange(inserting_linestart, inserting_at);
+
+    if (preceding.length == 0 || needs_uppercase_next(preceding))
+    {
+      final_result_str = (
+        final_result_str[0].toUpperCase()
+        +
+        final_result_str.slice(1));
+    }
+
     value = final_result_str;
   }
 
@@ -526,6 +578,8 @@ function speech_process_new_final_results(final_result_str)
   {
     speech_update_final_marker(words.join(" "));
   }
+
+  // {{{ commands
 
   function delete_words(n)
   {
@@ -623,6 +677,7 @@ function speech_process_new_final_results(final_result_str)
       words[0] = (words[0][0].toLowerCase() + words[0].slice(1));
     commit_update();
   }
+  // }}}
   else
     commit_update();
 }
