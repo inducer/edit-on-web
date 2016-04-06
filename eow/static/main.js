@@ -293,7 +293,8 @@ function run_subeditor_on_document(cm)
 
 var speech_recognition;
 var speech_started;
-var speech_transcript_buffer = "";
+var speech_phrase_final_marker;
+var speech_phrase_prelim_marker;
 
 function speech_update_indicator(flag)
 {
@@ -309,67 +310,183 @@ function speech_update_indicator(flag)
 }
 
 
+function speech_start()
+{
+  speech_recognition.start();
+  speech_started = true;
+  speech_update_indicator();
+}
+
+
+function speech_stop()
+{
+  speech_recognition.stop();
+  speech_started = false;
+  speech_update_indicator();
+}
+
+
+function speech_get_marker(marker)
+{
+  if (marker == null)
+    return "";
+
+  var fromto = marker.find();
+  if (fromto == null)
+    return "";
+
+  return codemirror_instance.getRange(fromto.from, fromto.to);
+}
+
+
+function speech_clear_marker(marker)
+{
+  var fromto = marker.find();
+  marker.clear();
+  if (fromto != null)
+  {
+    codemirror_instance.replaceRange("", fromto.from, fromto.to);
+    return fromto.from;
+  }
+}
+
+
+function speech_clear_final_marker()
+{
+}
+
+
+function speech_clear_prelim_marker()
+{
+  if (speech_phrase_prelim_marker)
+  {
+    speech_clear_marker(speech_phrase_prelim_marker);
+  }
+}
+
+
+function speech_commit_text()
+{
+  if (speech_phrase_final_marker)
+  {
+    var fromto = speech_phrase_final_marker.find();
+    speech_phrase_final_marker.clear();
+    if (fromto != null)
+    {
+      codemirror_instance.setCursor(fromto.to);
+      codemirror_instance.replaceSelection(" ");
+    }
+  }
+  speech_clear_prelim_marker();
+}
+
+
+function speech_start_marker(s, className, at, atomic)
+{
+  if (s.length == 0)
+    return null;
+
+  var cm = codemirror_instance;
+  if (at == null)
+    at = cm.getCursor();
+  var bm = cm.setBookmark(at, {insertLeft: true});
+  cm.replaceRange(s, at, at);
+  var end = bm.find();
+  bm.clear();
+
+  return cm.markText(
+      at,
+      end,
+      {
+        className: className,
+        clearWhenEmpty: false,
+        atomic: atomic
+      });
+}
+
+
+function speech_update_final_marker(s)
+{
+  var at;
+  if (speech_phrase_final_marker != null)
+    at = speech_clear_marker(speech_phrase_final_marker);
+
+  speech_phrase_final_marker = speech_start_marker(s, "speech-final", at, false);
+}
+
+
+function speech_update_prelim_marker(s)
+{
+  var at, prior_at;
+
+  if (speech_phrase_prelim_marker != null)
+    prior_at = speech_clear_marker(speech_phrase_prelim_marker);
+
+  if (speech_phrase_final_marker != null)
+  {
+    var fm_find = speech_phrase_final_marker.find();
+    if (fm_find != null)
+      at = fm_find.to;
+  }
+
+  if (at == null && prior_at != null)
+    at = prior_at;
+
+  speech_phrase_prelim_marker = speech_start_marker(s, "speech-prelim", at, true);
+}
+
+
 function speech_toggle()
 {
   if (!speech_recognition)
     return;
 
-  speech_started = !speech_started;
-  if (speech_started)
-  {
-    speech_recognition.start();
-  }
+  if (!speech_started)
+    speech_start();
   else
-  {
-    speech_recognition.stop();
-  }
-  speech_update_indicator();
+    speech_stop();
 }
 
 
-function speech_update_result(results, speech_skip_results)
+function trim_left(s)
 {
-  $("#speech_result").empty();
-
-  var span = $("<span></span>");
-  span.text(speech_transcript_buffer);
-  span.appendTo("#speech_result");
-
-  for (var iresult = speech_skip_results;
-      iresult < results.length; ++iresult)
-  {
-    var result = results.item(iresult);
-
-    if (result.length < 1)
-      continue;
-
-    var span = $("<span></span>");
-
-    if (!result.isFinal)
-    {
-      span.addClass("speech-not-final");
-    }
-
-    span.text(result[0].transcript);
-    span.appendTo("#speech_result");
-  }
+  return s.replace(/^[\s\uFEFF\xA0]+/g, '');
 }
 
+
+function trim_right(s)
+{
+  return s.replace(/[\s\uFEFF\xA0]+$/g, '');
+}
+
+
+function starts_with_punctuation(s)
+{
+  return /^[-.!?;:]/.test(s);
+}
 
 function speech_process_new_final_results(final_result_str)
 {
+  var value = speech_get_marker(speech_phrase_final_marker);
 
-  if (speech_transcript_buffer.length == 0)
+  final_result_str = final_result_str.trim();
+  if (value)
   {
-    speech_transcript_buffer = (
-        final_result_str[0].toUpperCase()
-        +
-        final_result_str.slice(1));
+    if (starts_with_punctuation(final_result_str))
+      value = trim_right(value) + final_result_str;
+    else
+      value = trim_right(value) + " " + final_result_str;
   }
   else
-    speech_transcript_buffer += final_result_str;
+  {
+    final_result_str = (
+      final_result_str[0].toUpperCase()
+      +
+      final_result_str.slice(1));
+    value = final_result_str;
+  }
 
-  var words = speech_transcript_buffer.split(" ");
+  var words = value.split(" ");
   var nwords = words.length;
 
   function remove_words(n)
@@ -378,7 +495,6 @@ function speech_process_new_final_results(final_result_str)
       n = nwords;
     words = words.slice(0, nwords-n);
     nwords -= n;
-    speech_transcript_buffer = words.join(" ");
   }
 
   function eat_command(cmd)
@@ -402,20 +518,15 @@ function speech_process_new_final_results(final_result_str)
   function delete_words(n)
   {
     set_message("debug", "[speech] delete "+n+" words");
-    remove_words(n);
+    for (var i = 0; i < n; ++i)
+      codemirror_instance.execCommand("delWordBefore");
   }
 
-  if (eat_command(["transfer", "text"]))
-  {
-    set_message("debug", "[speech] transfer text");
-    codemirror_instance.replaceSelection(speech_transcript_buffer);
-    speech_transcript_buffer = "";
-  }
-  else if (eat_command(["scratch", "that"])
+  if (eat_command(["scratch", "that"])
       || eat_command(["scratch", "this"]))
   {
     set_message("debug", "[speech] scratch that");
-    speech_transcript_buffer = "";
+    words = [];
   }
   else if (
       eat_command(["delete", "word"])
@@ -433,18 +544,44 @@ function speech_process_new_final_results(final_result_str)
   { delete_words(5); }
   else if (eat_command(["delete", "six", "words"])) { delete_words(6); }
   else if (eat_command(["delete", "7", "words"])) { delete_words(7); }
-  else if (eat_command(["go", "to", "sleep"]))
+  else if (eat_command(["stop", "listening"]))
   {
-    speech_toggle();
+    speech_stop();
   }
+  else if (eat_command(["commit", "this", "text"]))
+  {
+    speech_commit_text();
+    words = [];
+  }
+  else if (eat_command(["wrap", "this", "paragraph"]))
+  {
+    codemirror_instance.wrapParagraph(
+        codemirror_instance.getCursor(), wrap_options);
+  }
+  else if (eat_command(["wrap", "this", "text"]))
+  {
+    speech_update_final_marker(words.join(" "));
+    if (speech_phrase_final_marker)
+    {
+      var fromto = speech_phrase_final_marker.find();
+      if (fromto != null)
+        codemirror_instance.wrapRange(fromto.from, fromto.to, wrap_options);
+    }
+    return;
+  }
+  else if (eat_command(["undo", "that"])) { codemirror_instance.execCommand("undo"); }
+  else if (eat_command(["redo", "that"])) { codemirror_instance.execCommand("redo"); }
+  else if (eat_command(["backspace"])) { codemirror_instance.execCommand("delCharBefore"); }
+  else if (eat_command(["delete", "line"])) { codemirror_instance.execCommand("deleteLine"); }
   else if (eat_command(["uncap"]))
   {
     set_message("debug", "[speech] uncap");
-    speech_transcript_buffer = (
-        speech_transcript_buffer[0].toLowerCase()
-        +
-        speech_transcript_buffer.slice(1));
+
+    if (words.length)
+      words[0] = (words[0][0].toLowerCase() + words[0].slice(1));
   }
+
+  speech_update_final_marker(words.join(" "));
 }
 
 
@@ -477,7 +614,6 @@ function setup_speech_recognition()
       if (speech_started)
       {
         speech_recognition.start();
-        speech_transcript_buffer += " ";
       }
     }
 
@@ -486,6 +622,7 @@ function setup_speech_recognition()
       var results = event.results;
 
       var final_result_str = "";
+      var prelim_result_str = "";
       var final_result_count = 0;
       var seen_non_final = false;
 
@@ -501,19 +638,23 @@ function setup_speech_recognition()
 
           final_result_count += 1;
         }
+        else
+        {
+          if (result.length >= 1)
+            prelim_result_str += result[0].transcript;
+        }
 
         if (!result.isFinal)
           seen_non_final = true;
       }
 
+      // set_message("debug", prelim_result_str+"|"+final_result_str);
       if (final_result_str.length)
       {
         speech_process_new_final_results(final_result_str);
       }
-
       speech_skip_results += final_result_count;
-
-      speech_update_result(results, speech_skip_results)
+      speech_update_prelim_marker(prelim_result_str);
     }
 
     speech_recognition.onsoundstart = function()
@@ -554,6 +695,11 @@ function setup_speech_recognition()
 
 // {{{ codemirror setup
 
+var wrap_options = {
+  wrapOn: /\s\S/,
+  column: 80,
+};
+
 function setup_codemirror()
 {
   var theme = "default";
@@ -582,11 +728,6 @@ function setup_codemirror()
           "Ctrl-/": "toggleComment",
           "Ctrl-\\": function(cm)
           {
-            var wrap_options = {
-              wrapOn: /\s\S/,
-              column: 80,
-            };
-
             if (codemirror_instance.somethingSelected())
             {
               var sels = codemirror_instance.listSelections();
@@ -612,7 +753,8 @@ function setup_codemirror()
 
           "F2": run_subeditor_on_selection,
           "F3": run_subeditor_on_document,
-          "F4": speech_toggle,
+          "Ctrl-Enter": speech_commit_text,
+          "Ctrl-'": speech_toggle,
 
           "Tab": function(cm)
           {

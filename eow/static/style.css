@@ -51,20 +51,21 @@ body {
 }
 
 #speech_indicator {
-  color: red;
+  color: #c00;
   font-size:x-large;
   margin-left:5px;
 }
 
 #speech_indicator.speech-on {
-  color: green;
+  color: #0c0;
 }
 
-#speech_result {
+.speech-final {
+  color: #050;
+  font-weight:bold;
 }
-
-#speech_result .speech-not-final {
-  color: #888;
+.speech-prelim {
+  color: #666;
 }
 
 /* }}} */
