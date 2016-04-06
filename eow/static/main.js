@@ -381,18 +381,27 @@ function speech_commit_text()
 }
 
 
-function speech_start_marker(s, className, at, atomic)
+function speech_start_marker(s, className, at, atomic, revert_cursor)
 {
   if (s.length == 0)
     return null;
 
   var cm = codemirror_instance;
+  var cursor_at_start = cm.getCursor();
+
   if (at == null)
-    at = cm.getCursor();
+  {
+    at = cursor_at_start;
+  }
+  var at_cursor = (at.ch == cursor_at_start.ch) && (at.line == cursor_at_start.line);
+
   var bm = cm.setBookmark(at, {insertLeft: true});
   cm.replaceRange(s, at, at);
   var end = bm.find();
   bm.clear();
+
+  if (at_cursor && revert_cursor)
+    cm.setCursor(cursor_at_start);
 
   return cm.markText(
       at,
@@ -411,7 +420,7 @@ function speech_update_final_marker(s)
   if (speech_phrase_final_marker != null)
     at = speech_clear_marker(speech_phrase_final_marker);
 
-  speech_phrase_final_marker = speech_start_marker(s, "speech-final", at, false);
+  speech_phrase_final_marker = speech_start_marker(s, "speech-final", at, false, false);
 }
 
 
@@ -432,7 +441,7 @@ function speech_update_prelim_marker(s)
   if (at == null && prior_at != null)
     at = prior_at;
 
-  speech_phrase_prelim_marker = speech_start_marker(s, "speech-prelim", at, true);
+  speech_phrase_prelim_marker = speech_start_marker(s, "speech-prelim", at, true, true);
 }
 
 
@@ -500,9 +509,7 @@ function speech_process_new_final_results(final_result_str)
   function eat_command(cmd)
   {
     if (cmd.length >= nwords)
-    {
       return false;
-    }
 
     for (var i = 0; i < cmd.length; ++i)
     {
@@ -515,11 +522,19 @@ function speech_process_new_final_results(final_result_str)
     return true;
   }
 
+  function commit_update()
+  {
+    speech_update_final_marker(words.join(" "));
+  }
+
   function delete_words(n)
   {
+    commit_update();
     set_message("debug", "[speech] delete "+n+" words");
     for (var i = 0; i < n; ++i)
-      codemirror_instance.execCommand("delWordBefore");
+    {
+      codemirror_instance.execCommand("delGroupBefore");
+    }
   }
 
   if (eat_command(["scratch", "that"])
@@ -527,61 +542,89 @@ function speech_process_new_final_results(final_result_str)
   {
     set_message("debug", "[speech] scratch that");
     words = [];
+    commit_update();
   }
   else if (
       eat_command(["delete", "word"])
       || eat_command(["delete", "one", "word"])
+      || eat_command(["delete", "this", "word"])
       || eat_command(["delete", "last", "word"])
       )
   { delete_words(1); }
-  else if (eat_command(["delete", "two", "words"])) { delete_words(2); }
-  else if (eat_command(["delete", "three", "words"])) { delete_words(3); }
+  else if (
+      eat_command(["delete", "two", "words"])
+      || eat_command(["delete", "last", "two", "words"])
+      )
+  { delete_words(2); }
+  else if (
+      eat_command(["delete", "three", "words"])
+      || eat_command(["delete", "last", "three", "words"])
+      )
+  { delete_words(3); }
   else if (eat_command(["delete", "four", "words"])) { delete_words(4); }
   else if (
       eat_command(["delete", "five", "words"])
+      || eat_command(["delete", "last", "five", "words"])
       || eat_command(["delete", "v", "words"])
       )
   { delete_words(5); }
-  else if (eat_command(["delete", "six", "words"])) { delete_words(6); }
-  else if (eat_command(["delete", "7", "words"])) { delete_words(7); }
+  else if (
+      eat_command(["delete", "six", "words"])
+      || eat_command(["delete", "last", "six", "words"])
+      )
+  { delete_words(6); }
+  else if (
+      eat_command(["delete", "7", "words"])
+      || eat_command(["delete", "last", "7", "words"])
+      )
+  { delete_words(7); }
   else if (eat_command(["stop", "listening"]))
   {
+    commit_update();
     speech_stop();
   }
   else if (eat_command(["commit", "this", "text"]))
   {
     speech_commit_text();
     words = [];
+    commit_update();
   }
   else if (eat_command(["wrap", "this", "paragraph"]))
   {
+    commit_update();
     codemirror_instance.wrapParagraph(
         codemirror_instance.getCursor(), wrap_options);
   }
   else if (eat_command(["wrap", "this", "text"]))
   {
-    speech_update_final_marker(words.join(" "));
+    commit_update();
     if (speech_phrase_final_marker)
     {
       var fromto = speech_phrase_final_marker.find();
       if (fromto != null)
         codemirror_instance.wrapRange(fromto.from, fromto.to, wrap_options);
     }
-    return;
   }
-  else if (eat_command(["undo", "that"])) { codemirror_instance.execCommand("undo"); }
-  else if (eat_command(["redo", "that"])) { codemirror_instance.execCommand("redo"); }
-  else if (eat_command(["backspace"])) { codemirror_instance.execCommand("delCharBefore"); }
-  else if (eat_command(["delete", "line"])) { codemirror_instance.execCommand("deleteLine"); }
+  else if (eat_command(["backspace"]))
+  {
+    commit_update();
+    codemirror_instance.execCommand("delCharBefore");
+  }
+  else if (eat_command(["delete", "line"]))
+  {
+    commit_update();
+    codemirror_instance.execCommand("deleteLine");
+  }
   else if (eat_command(["uncap"]))
   {
     set_message("debug", "[speech] uncap");
 
     if (words.length)
       words[0] = (words[0][0].toLowerCase() + words[0].slice(1));
+    commit_update();
   }
-
-  speech_update_final_marker(words.join(" "));
+  else
+    commit_update();
 }
 
 
