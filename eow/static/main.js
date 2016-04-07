@@ -773,12 +773,12 @@ function setup_speech_recognition()
 
     // FIXME: Language choice
 
-    var speech_skip_results;
+    var speech_skipped_transcript;
 
     speech_recognition.onstart = function()
     {
       // set_message("debug", "[speech] onstart");
-      speech_skip_results = 0;
+      speech_skipped_transcript = "";
     }
 
     speech_recognition.onend = function()
@@ -799,7 +799,7 @@ function setup_speech_recognition()
       var final_result_count = 0;
       var seen_non_final = false;
 
-      for (var iresult = speech_skip_results;
+      for (var iresult = 0;
           iresult < results.length; ++iresult)
       {
         var result = results.item(iresult);
@@ -823,11 +823,22 @@ function setup_speech_recognition()
 
       // set_message("debug", prelim_result_str+"|"+final_result_str);
       speech_update_prelim_marker(prelim_result_str);
+
+      if (final_result_str.slice(0, speech_skipped_transcript.length)
+          != speech_skipped_transcript)
+      {
+        set_message("debug", "'final' result transcript changed!");
+        console.log("PREVIOUS: "+speech_skipped_transcript);
+        console.log("CURRENT: "
+            +final_result_str.slice(0, speech_skipped_transcript.length));
+      }
+      final_result_str = final_result_str.slice(speech_skipped_transcript.length);
+
       if (final_result_str.length)
       {
         speech_process_new_final_results(final_result_str);
       }
-      speech_skip_results += final_result_count;
+      speech_skipped_transcript += final_result_str;
     }
 
     speech_recognition.onsoundstart = function()
