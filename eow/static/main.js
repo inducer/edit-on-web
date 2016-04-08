@@ -403,36 +403,6 @@ function speech_clear_prelim_marker()
 }
 
 
-function speech_commit_text()
-{
-  var cm = codemirror_instance;
-
-  // flush residual results.
-  speech_recognition.stop();
-  // "onend" will restart the recognizer.
-
-  if (speech_phrase_final_marker)
-  {
-    var fromto = speech_phrase_final_marker.find();
-    speech_phrase_final_marker.clear();
-    if (fromto != null)
-    {
-      var at = fromto.to;
-      cm.setCursor(at);
-      var line_contents = cm.getLine(at.line);
-      if (at.ch == line_contents.length
-          || !(
-            starts_with_whitespace(line_contents.slice(at.ch))
-            || starts_with_punctuation(line_contents.slice(at.ch))
-            )
-          )
-        cm.replaceSelection(" ");
-    }
-  }
-  speech_clear_prelim_marker();
-}
-
-
 function speech_mark_text(from, to, className, atomic)
 {
   return codemirror_instance.markText(
@@ -536,11 +506,54 @@ function speech_update_prelim_marker(s)
 // }}}
 
 
+function speech_commit_text()
+{
+  var cm = codemirror_instance;
+
+  if (speech_phrase_final_marker)
+  {
+    var fromto = speech_phrase_final_marker.find();
+    speech_phrase_final_marker.clear();
+    if (fromto != null)
+    {
+      var at = fromto.to;
+      cm.setCursor(at);
+      var line_contents = cm.getLine(at.line);
+      if (at.ch == line_contents.length
+          || !(
+            starts_with_whitespace(line_contents.slice(at.ch))
+            || starts_with_punctuation(line_contents.slice(at.ch))
+            )
+          )
+        cm.replaceSelection(" ");
+    }
+  }
+  speech_clear_prelim_marker();
+}
+
+function speech_commit_text_and_flush_recognizer()
+{
+  // flush residual results.
+  speech_recognition.stop();
+  // "onend" will restart the recognizer.
+
+  speech_commit_text();
+}
+
+
+function speech_scratch_input()
+{
+  speech_update_final_marker("");
+  speech_recognition.abort();
+
+  speech_clear_prelim_marker();
+}
+
 function speech_process_new_final_results(final_result_str)
 {
   var cm = codemirror_instance;
 
-  // {{{ check if the user typed something, and if so swallow it into speech_phrase_final_marker
+  // {{{ respond to cursor motion
 
   if (speech_phrase_final_marker != null)
   {
@@ -548,10 +561,18 @@ function speech_process_new_final_results(final_result_str)
     var cursor = cm.getCursor();
     if (fromto != null)
     {
+      // check if the user typed something, and if so swallow it into
+      // speech_phrase_final_marker
       if (fromto.to.line == cursor.line && fromto.to.ch < cursor.ch)
       {
         speech_phrase_final_marker.clear();
         speech_phrase_final_marker = speech_mark_text_final(fromto.from, cursor);
+      }
+      else if (cursor.line < fromto.from.line - 1
+          || cursor.line > fromto.to.line + 1)
+      {
+        speech_commit_text();
+        cm.setCursor(cursor);
       }
     }
   }
@@ -909,7 +930,8 @@ function setup_codemirror()
     readOnly: eow_info.read_only,
     extraKeys:
         {
-          "Ctrl-/": "toggleComment",
+          // "Ctrl-/": "toggleComment",
+          "Ctrl-/": speech_scratch_input,
           "Ctrl-\\": function(cm)
           {
             if (codemirror_instance.somethingSelected())
@@ -937,7 +959,7 @@ function setup_codemirror()
 
           "F2": run_subeditor_on_selection,
           "F3": run_subeditor_on_document,
-          "Ctrl-Enter": speech_commit_text,
+          "Ctrl-Enter": speech_commit_text_and_flush_recognizer,
           "Ctrl-'": speech_toggle,
 
           "Tab": function(cm)
