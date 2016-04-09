@@ -549,9 +549,25 @@ function speech_scratch_input()
   speech_clear_prelim_marker();
 }
 
+var speech_replacement_rules = [];
+
+function speech_register_replacement_rule(regexp_str, replacement)
+{
+  speech_replacement_rules.push({
+    regexp: RegExp(regexp_str, "g"),
+    replacement:replacement
+  });
+}
+
 function speech_process_new_final_results(final_result_str)
 {
   var cm = codemirror_instance;
+
+  for (var i = 0; i < speech_replacement_rules.length; ++i)
+  {
+    var rule = speech_replacement_rules[i];
+    final_result_str = final_result_str.replace(rule.regexp, rule.replacement);
+  }
 
   // {{{ respond to cursor motion
 
