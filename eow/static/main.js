@@ -918,14 +918,15 @@ function setup_codemirror()
     value: eow_info.content,
     fixedGutter: true,
     theme: theme,
-    lineNumbers: eow_info.show_line_numbers,
+    lineNumbers: true,
     autofocus: true,
     matchBrackets: true,
     styleActiveLine: true,
     showTrailingSpace: true,
-    lineWrapping: eow_info.wrap_lines,
     indentUnit: 2,
     undoDepth: 10000,
+    foldGutter: true,
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
 
     readOnly: eow_info.read_only,
     extraKeys:
@@ -1004,15 +1005,6 @@ function setup_codemirror()
   {
     $("#button_bar").hide();
     $("#editor").css("height", "100%");
-  }
-
-  if (eow_info.font_family)
-  {
-    $(".CodeMirror").css("font-family", eow_info.font_family);
-    codemirror_instance.refresh();
-
-    $("#editbox").css("font-family", eow_info.font_family);
-    $("#editbox textarea").css("font-family", eow_info.font_family);
   }
 
   if (eow_info.read_only)

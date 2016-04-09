@@ -4,6 +4,7 @@
   <link href="{{ url_for('static', filename='codemirror/lib/codemirror.css') }}" type="text/css" media="all" rel="stylesheet" />
   <link href="{{ url_for('static', filename='codemirror/addon/dialog/dialog.css') }}" type="text/css" media="all" rel="stylesheet" />
   <link href="{{ url_for('static', filename='codemirror/addon/search/matchesonscrollbar.css') }}" type="text/css" media="all" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='codemirror/addon/fold/foldgutter.css') }}" type="text/css" media="all" rel="stylesheet" />
 
   <script type="text/javascript" src="{{ url_for('static',  filename='jquery-2.1.4.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/lib/codemirror.js') }}"></script>
@@ -27,6 +28,8 @@
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/mode/loadmode.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/mode/overlay.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/wrap/hardwrap.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/fold/foldcode.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/addon/fold/foldgutter.js') }}"></script>
 
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/vim.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/emacs.js') }}"></script>
@@ -51,6 +54,8 @@
       Ctrl-': Toggle speech
       &middot;
       Ctrl-Enter: Reset speech marker
+      &middot;
+      Ctrl-/: Scratch speech buffer
       &middot;
       <tt>{{ filename }}</tt>
     </div>

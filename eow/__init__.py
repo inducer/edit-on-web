@@ -114,12 +114,21 @@ def log_out():
 
 
 DEFAULT_CONFIG = """
-function config_codemirror_options(cm_options)
+function config_process_codemirror_options(cm_options)
 {
+  // cm_options.lineNumbers = false;
+  // cm_options.lineWrapping = true;
 }
 
 function config_setup(cm)
 {
+  // var font_family = "Droid Sans Mono";
+
+  // $(".CodeMirror").css("font-family", eow_info.font_family);
+  // cm.refresh();
+
+  // $("#editbox").css("font-family", eow_info.font_family);
+  // $("#editbox textarea").css("font-family", eow_info.font_family);
 }
 """
 
@@ -323,8 +332,6 @@ def main():
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--wrap-lines', action="store_true")
     parser.add_argument('--hide-save-button', action="store_true")
-    parser.add_argument('--show-line-numbers', action="store_true")
-    parser.add_argument('--font-family')
     parser.add_argument('-k', '--keymap',
             help="Keymap to use (vim, emacs, sublime, or default)",
             metavar="KEYMAP")
@@ -351,9 +358,6 @@ def main():
     app.config["EOW_INFO_BASE"] = {
             "keymap": args.keymap,
             "hide_save_button": args.hide_save_button,
-            "font_family": args.font_family,
-            "wrap_lines": args.wrap_lines,
-            "show_line_numbers": args.show_line_numbers,
             }
 
     if args.secret_key:
