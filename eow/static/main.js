@@ -971,6 +971,9 @@ function setup_codemirror()
         }
   };
 
+  if (typeof config_process_codemirror_options == "function")
+    config_process_codemirror_options(cm_config);
+
   if (eow_info.keymap == "vim")
     cm_config["vimMode"] = true;
   else if (eow_info.keymap == "default")
@@ -1124,6 +1127,9 @@ function setup()
 
   setup_saving();
   setup_speech_recognition();
+
+  if (typeof config_setup == "function")
+    config_setup(codemirror_instance);
 }
 
 $(document).ready(setup);

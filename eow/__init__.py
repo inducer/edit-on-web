@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 from flask import (Flask, render_template, flash, Markup, request, make_response,
-        session, redirect, url_for)
+        session, redirect, url_for, Response)
 
 
 def _find_eow_data_path(subdir):
@@ -111,6 +111,45 @@ def log_out():
         session["authenticated"] = False
 
     return render_template('logout.html')
+
+
+DEFAULT_CONFIG = """
+function config_codemirror_options(cm_options)
+{
+}
+
+function config_setup(cm)
+{
+}
+"""
+
+
+@app.route("/get-config-js")
+def get_config_js():
+    from appdirs import user_config_dir
+    config_dir = user_config_dir(appname="edit-on-web", appauthor="inducer")
+
+    from os.path import join
+
+    from os import makedirs
+    try:
+        makedirs(config_dir)
+    except FileExistsError:
+        pass
+
+    config_file = join(config_dir, "config.js")
+
+    for iattempt in [0, 1]:
+        try:
+            with open(config_file, "r") as inf:
+                return Response(inf.read(), "200", mimetype="application/javascript")
+        except FileNotFoundError:
+            pass
+
+        with open(config_file, "w") as outf:
+            outf.write(DEFAULT_CONFIG)
+
+    raise RuntimeError("failed to get config file")
 
 
 @app.route("/b/")

@@ -32,6 +32,9 @@
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/emacs.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='codemirror/keymap/sublime.js') }}"></script>
 
+  <!-- found in $HOME/.config/edit-on-web/config.js -->
+  <!-- may contain config_process_codemirror_options() and config_setup() -->
+  <script type="text/javascript" src="{{ url_for('.get_config_js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static',  filename='main.js') }}"></script>
 {% endblock %}
 {% block body %}

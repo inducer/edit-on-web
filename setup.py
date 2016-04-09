@@ -26,6 +26,7 @@ def main():
               ],
           install_requires=[
               "flask",
+              "appdirs",
               "simplejson",
               ],
 
