@@ -124,11 +124,11 @@ function config_setup(cm)
 {
   // var font_family = "Droid Sans Mono";
 
-  // $(".CodeMirror").css("font-family", eow_info.font_family);
+  // $(".CodeMirror").css("font-family", font_family);
   // cm.refresh();
 
-  // $("#editbox").css("font-family", eow_info.font_family);
-  // $("#editbox textarea").css("font-family", eow_info.font_family);
+  // $("#editbox").css("font-family", font_family);
+  // $("#editbox textarea").css("font-family", font_family);
 }
 """
 
