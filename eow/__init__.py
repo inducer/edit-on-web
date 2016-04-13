@@ -395,6 +395,8 @@ def main():
 
         for f in args.files:
             start_browser(url_base + "/e/" + f)
+        else:
+            start_browser(url_base + "/b/")
 
     app.run(host=args.host, port=args.port)
 
