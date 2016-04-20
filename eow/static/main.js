@@ -1,3 +1,5 @@
+// "use strict";
+
 var codemirror_instance;
 var last_saved_generation;
 var storage_key;
@@ -73,6 +75,57 @@ function setup_messages()
 // }}}
 
 // {{{ utilities
+
+function get_paragraph_start_pos(cm, from)
+{
+  var iline = from.line;
+
+  while (true)
+  {
+    if (iline == 0)
+      return {line: 0, ch: 0};
+
+   if (cm.getLine(iline).trim().length)
+     --iline;
+   else
+   {
+     if (iline == from.line)
+     {
+       // starting line is empty.
+       return {line: iline, ch: 0};
+     }
+     else
+       return {line: iline+1, ch: 0};
+   }
+  }
+}
+
+
+function get_paragraph_end_pos(cm, from)
+{
+  var iline = from.line;
+  var count = cm.lineCount();
+
+  while (true)
+  {
+    if (iline + 1 == count)
+      return {line: iline, ch: cm.getLine(iline).length};
+
+   if (cm.getLine(iline).trim().length)
+     ++iline;
+   else
+   {
+     if (iline == from.line)
+     {
+       // starting line is empty.
+       return {line: iline, ch: 0};
+     }
+     else
+       return {line: iline-1, ch: cm.getLine(iline-1).length};
+   }
+  }
+}
+
 
 function get_cm_scroll_area(cm)
 {
@@ -159,38 +212,70 @@ function join_wordsep(wordsep)
 }
 
 
-function normalize_wordsep_from(wordsep, start_i)
+function normalize_wordsep_range(wordsep, start_i, stop_i, tracked_indices)
 {
+  var i;
+
+  if (stop_i == null)
+    stop_i = wordsep.length;
+  if (stop_i > wordsep.length)
+    stop_i = wordsep.length;
+  if (start_i < 0)
+    start_i = 0;
+
   // {{{ stage 1: coalesce/fix zero-length bits
 
   var normalized = [];
 
-  for (var i = 0; i < wordsep.length; ++i)
+  for (i = 0; i < wordsep.length; ++i)
   {
     var word = wordsep[i].word;
     var sep = wordsep[i].sep;
+    var skipped = false;
 
     if (word.length == 0 && sep.length == 0)
     {
       // How did that get here? Skip it.
-      continue;
+      skipped = true;
     }
     else if (word.length == 0)
     {
       // try to merge sep into prior sep
+
       if (normalized.length)
       {
-        if (start_i <= i)
-          --start_i;
         normalized[normalized.length-1].sep += sep;
-        continue;
+        skipped = true;
       }
     }
 
-    if (sep.length == 0)
-      sep = " ";
+    if (!skipped)
+    {
+      if (sep.length == 0)
+        sep = " ";
 
-    normalized.push({word: word, sep: sep});
+      normalized.push({word: word, sep: sep});
+    }
+    else
+    {
+      if (i < start_i)
+        --start_i;
+      if (i < stop_i)
+        --stop_i;
+
+      // {{{ update tracked_indices
+
+      if (tracked_indices != null)
+      {
+        for (var track_i = 0; i < tracked_indices.length; ++track_i)
+        {
+          if (i < tracked_indices[track_i])
+            --tracked_indices[track_i];
+        }
+      }
+
+      // }}}
+    }
   }
 
   // }}}
@@ -200,7 +285,7 @@ function normalize_wordsep_from(wordsep, start_i)
   var prev_sep;
 
   var result = normalized.slice(0, start_i);
-  for (var i = start_i; i < normalized.length; ++i)
+  for (i = start_i; i < stop_i; ++i)
   {
     var word = normalized[i].word;
     var sep = normalized[i].sep;
@@ -225,6 +310,9 @@ function normalize_wordsep_from(wordsep, start_i)
 
     prev_sep = sep;
   }
+
+  // mop up the rest if stop_i < length
+  result = result.concat(normalized.slice(i));
 
   // }}}
 
@@ -588,28 +676,6 @@ function speech_register_replacement_rule(regexp_str, replacement)
 }
 
 
-function get_paragraph_start_pos(cm, from)
-{
-  var iline = from.line;
-
-  while (true)
-  {
-    if (iline == 0)
-      return {line: 0, ch: 0};
-
-   if (cm.getLine(iline).trim().length)
-     --iline;
-   else
-   {
-     if (iline == from.line)
-       return {line: iline, ch: 0};
-     else
-       return {line: iline+1, ch: 0};
-   }
-  }
-}
-
-
 function speech_process_new_final_results(final_result_str)
 {
   var cm = codemirror_instance;
@@ -632,7 +698,7 @@ function speech_process_new_final_results(final_result_str)
 
     wordsep = wordsep.concat(split_into_wordsep(final_result_str.trim()));
 
-    wordsep = normalize_wordsep_from(wordsep, wordsep_normalization_start);
+    wordsep = normalize_wordsep_range(wordsep, wordsep_normalization_start);
   }
 
   function remove_words(n)
@@ -677,7 +743,29 @@ function speech_process_new_final_results(final_result_str)
 
   function commit_update()
   {
-    cm.replaceRange(join_wordsep(wordsep), par_start, cursor);
+    var par_end = get_paragraph_end_pos(cm, cursor);
+    var remainder_wordsep = split_into_wordsep(cm.getRange(cursor, par_end));
+    var par_wordsep = wordsep.concat(remainder_wordsep);
+
+    var cursor_tracker = [wordsep.length];
+    par_wordsep = normalize_wordsep_range(
+        par_wordsep,
+        /* gets bounds-checked in callee */ wordsep.length - 1,
+        /* gets bounds-checked in callee */ wordsep.length + 2,
+        cursor_tracker);
+
+    cm.replaceRange(join_wordsep(par_wordsep), par_start, par_end);
+
+    // {{{ recover cursor position
+
+    var nchars = 0;
+    var i;
+    for (i = 0; i < cursor_tracker[0]; ++i)
+      nchars += (par_wordsep[i].word.length + par_wordsep[i].sep.length);
+
+    cm.setCursor(cm.findPosH(par_start, nchars, "char", /* visually */ false))
+
+    // }}}
   }
 
   function delete_words(n)
@@ -695,7 +783,7 @@ function speech_process_new_final_results(final_result_str)
     if (wordsep.length)
     {
       wordsep[wordsep.length-1].sep += s;
-      wordsep = normalize_wordsep_from(wordsep, wordsep.length-1);
+      wordsep = normalize_wordsep_range(wordsep, wordsep.length-1);
     }
     else
       wordsep.push({word: "", sep: s})
@@ -987,6 +1075,7 @@ function setup_codemirror()
   codemirror_instance = CodeMirror(editor_dom, cm_config);
   CodeMirror.modeURL = "/static/codemirror/mode/%N/%N.js";
 
+  var m;
   if (m = /.+\.([^.]+)$/.exec(eow_info.filename))
   {
     var info = CodeMirror.findModeByExtension(m[1]);
