@@ -393,8 +393,9 @@ def main():
                 if did_fork:
                     os._exit(0)
 
-        for f in args.files:
-            start_browser(url_base + "/e/" + f)
+        if args.files:
+            for f in args.files:
+                start_browser(url_base + "/e/" + f)
         else:
             start_browser(url_base + "/b/")
 
