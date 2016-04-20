@@ -104,18 +104,136 @@ function starts_with_punctuation(s)
 }
 
 
-function needs_uppercase_next(s)
+function ends_sentence(sep)
 {
-  return /[.;:]\s*$/.test(s);
+  return /[.!?;:]/.test(sep);
 }
+
 
 function starts_with_whitespace(s)
 {
   return /^\s+/.test(s);
 }
 
+function ends_with_whitespace(s)
+{
+  return /\s+$/.test(s);
+}
+
+// {{{ wordsep
+
+// a 'wordsep' is an array [{word, sep}, {word, separator}, ...].
+function split_into_wordsep(s)
+{
+  var separator = /^(.*?)([-.,"';:?! \n]+)/;
+  var result = [];
+
+  while (true)
+  {
+    var match = s.match(separator)
+
+    if (match == null)
+    {
+      if (s.length > 0)
+        result.push({word: s, sep: ""});
+      return result;
+    }
+    else
+    {
+      result.push({word: match[1], sep: match[2]});
+      s = s.slice(match[1].length + match[2].length);
+    }
+  }
+
+  return result;
+}
+
+
+function join_wordsep(wordsep)
+{
+  var result = "";
+  for (var i = 0; i < wordsep.length; ++i)
+    result += wordsep[i].word + wordsep[i].sep;
+
+  return result;
+}
+
+
+function normalize_wordsep_from(wordsep, start_i)
+{
+  // {{{ stage 1: coalesce/fix zero-length bits
+
+  var normalized = [];
+
+  for (var i = 0; i < wordsep.length; ++i)
+  {
+    var word = wordsep[i].word;
+    var sep = wordsep[i].sep;
+
+    if (word.length == 0 && sep.length == 0)
+    {
+      // How did that get here? Skip it.
+      continue;
+    }
+    else if (word.length == 0)
+    {
+      // try to merge sep into prior sep
+      if (normalized.length)
+      {
+        if (start_i <= i)
+          --start_i;
+        normalized[normalized.length-1].sep += sep;
+        continue;
+      }
+    }
+
+    if (sep.length == 0)
+      sep = " ";
+
+    normalized.push({word: word, sep: sep});
+  }
+
+  // }}}
+
+  // {{{ stage 2: case, spaces
+
+  var prev_sep;
+
+  var result = normalized.slice(0, start_i);
+  for (var i = start_i; i < normalized.length; ++i)
+  {
+    var word = normalized[i].word;
+    var sep = normalized[i].sep;
+
+    if (word.length && (i == 0 || ends_sentence(prev_sep)))
+    {
+      word = (
+        word[0].toUpperCase()
+        +
+        word.slice(1));
+    }
+
+    sep = sep.replace(/^(\s+)(\S+)/, "$2$1");
+    sep = sep.replace(/  +/, " ");
+    sep = sep.replace(/[ \t]*\n[ \t]*/, "\n");
+    if (sep != "-" && /\S/.test(sep) && !ends_with_whitespace(sep))
+    {
+      sep += " ";
+    }
+
+    result.push({word: word, sep: sep});
+
+    prev_sep = sep;
+  }
+
+  // }}}
+
+  return result;
+}
+
 // }}}
 
+// }}}
 
 // {{{ sub-editor
 
@@ -322,7 +440,6 @@ function run_subeditor_on_document(cm)
 
 var speech_recognition;
 var speech_started;
-var speech_phrase_final_marker;
 var speech_phrase_prelim_marker;
 
 function speech_update_indicator(flag)
@@ -422,12 +539,6 @@ function speech_mark_text_prelim(from, to)
 }
 
 
-function speech_mark_text_final(from, to)
-{
-  return speech_mark_text(from, to, "speech-final", false);
-}
-
-
 function speech_start_marker(mark_func, s, at, revert_cursor)
 {
   if (s.length == 0)
@@ -450,54 +561,14 @@ function speech_start_marker(mark_func, s, at, revert_cursor)
 }
 
 
-function speech_get_final_marker_start()
-{
-  var cm = codemirror_instance;
-
-  var at;
-  if (speech_phrase_final_marker != null)
-  {
-    var fromto = speech_phrase_final_marker.find();
-    if (fromto != null)
-      return fromto.from;
-  }
-  return cm.getCursor();
-}
-
-
-function speech_update_final_marker(s)
-{
-  var cm = codemirror_instance;
-
-  var at = speech_get_final_marker_start();
-  if (speech_phrase_final_marker != null)
-    speech_clear_marker(speech_phrase_final_marker);
-
-  speech_phrase_final_marker = speech_start_marker(
-      speech_mark_text_final, s, at, false);
-}
-
-
 function speech_update_prelim_marker(s)
 {
   var cm = codemirror_instance;
 
-  var at, prior_at;
-
   if (speech_phrase_prelim_marker != null)
-    prior_at = speech_clear_marker(speech_phrase_prelim_marker);
+    speech_clear_marker(speech_phrase_prelim_marker);
 
-  if (speech_phrase_final_marker != null)
-  {
-    var fm_find = speech_phrase_final_marker.find();
-    if (fm_find != null)
-      at = fm_find.to;
-  }
-
-  if (at == null && prior_at != null)
-    at = prior_at;
-  if (at == null)
-    at = cm.getCursor();
+  var at = cm.getCursor();
 
   speech_phrase_prelim_marker = speech_start_marker(
       speech_mark_text_prelim, s, at, true);
@@ -505,49 +576,6 @@ function speech_update_prelim_marker(s)
 
 // }}}
 
-
-function speech_commit_text()
-{
-  var cm = codemirror_instance;
-
-  if (speech_phrase_final_marker)
-  {
-    var fromto = speech_phrase_final_marker.find();
-    speech_phrase_final_marker.clear();
-    if (fromto != null)
-    {
-      var at = fromto.to;
-      cm.setCursor(at);
-      var line_contents = cm.getLine(at.line);
-      if (at.ch == line_contents.length
-          || !(
-            starts_with_whitespace(line_contents.slice(at.ch))
-            || starts_with_punctuation(line_contents.slice(at.ch))
-            )
-          )
-        cm.replaceSelection(" ");
-    }
-  }
-  speech_clear_prelim_marker();
-}
-
-function speech_commit_text_and_flush_recognizer()
-{
-  // flush residual results.
-  speech_recognition.stop();
-  // "onend" will restart the recognizer.
-
-  speech_commit_text();
-}
-
-
-function speech_scratch_input()
-{
-  speech_update_final_marker("");
-  speech_recognition.abort();
-
-  speech_clear_prelim_marker();
-}
 
 var speech_replacement_rules = [];
 
@@ -559,6 +587,29 @@ function speech_register_replacement_rule(regexp_str, replacement)
   });
 }
 
+
+function get_paragraph_start_pos(cm, from)
+{
+  var iline = from.line;
+
+  while (true)
+  {
+    if (iline == 0)
+      return {line: 0, ch: 0};
+
+   if (cm.getLine(iline).trim().length)
+     --iline;
+   else
+   {
+     if (iline == from.line)
+       return {line: iline, ch: 0};
+     else
+       return {line: iline+1, ch: 0};
+   }
+  }
+}
+
+
 function speech_process_new_final_results(final_result_str)
 {
   var cm = codemirror_instance;
@@ -569,69 +620,26 @@ function speech_process_new_final_results(final_result_str)
     final_result_str = final_result_str.replace(rule.regexp, rule.replacement);
   }
 
-  // {{{ respond to cursor motion
+  var cursor = cm.getCursor();
+  var par_start = get_paragraph_start_pos(cm, cursor);
+  var wordsep;
 
-  if (speech_phrase_final_marker != null)
   {
-    var fromto = speech_phrase_final_marker.find();
-    var cursor = cm.getCursor();
-    if (fromto != null)
-    {
-      // check if the user typed something, and if so swallow it into
-      // speech_phrase_final_marker
-      if (fromto.to.line == cursor.line && fromto.to.ch < cursor.ch)
-      {
-        speech_phrase_final_marker.clear();
-        speech_phrase_final_marker = speech_mark_text_final(fromto.from, cursor);
-      }
-      else if (cursor.line < fromto.from.line - 1
-          || cursor.line > fromto.to.line + 1)
-      {
-        speech_commit_text();
-        cm.setCursor(cursor);
-      }
-    }
+    var wordsep = split_into_wordsep(cm.getRange(par_start, cursor));
+    var wordsep_normalization_start = wordsep.length;
+    if (wordsep_normalization_start > 0)
+      wordsep_normalization_start -= 1;
+
+    wordsep = wordsep.concat(split_into_wordsep(final_result_str.trim()));
+
+    wordsep = normalize_wordsep_from(wordsep, wordsep_normalization_start);
   }
-
-  // }}}
-
-  var value = speech_get_marker(speech_phrase_final_marker);
-
-  final_result_str = final_result_str.trim();
-  if (value)
-  {
-    if (starts_with_punctuation(final_result_str))
-      value = trim_right(value) + final_result_str;
-    else
-      value = trim_right(value) + " " + final_result_str;
-  }
-  else
-  {
-    var inserting_at = speech_get_final_marker_start();
-    var inserting_linestart = {line: inserting_at.line, ch: 0};
-
-    var preceding = cm.getRange(inserting_linestart, inserting_at);
-
-    if (preceding.length == 0 || needs_uppercase_next(preceding))
-    {
-      final_result_str = (
-        final_result_str[0].toUpperCase()
-        +
-        final_result_str.slice(1));
-    }
-
-    value = final_result_str;
-  }
-
-  var words = value.split(" ");
-  var nwords = words.length;
 
   function remove_words(n)
   {
-    if (n > nwords)
-      n = nwords;
-    words = words.slice(0, nwords-n);
-    nwords -= n;
+    if (n > wordsep.length)
+      n = wordsep.length;
+    wordsep = wordsep.slice(0, wordsep.length-n);
   }
 
   function eat_command(cmd, debug)
@@ -639,11 +647,11 @@ function speech_process_new_final_results(final_result_str)
     if (debug)
       console.log(
           "debugging command matching:WORDS:"
-          + words.join("|")
+          + wordsep.join("|")
           + "<>CMD:"
           + cmd.join("|"));
 
-    if (cmd.length > nwords)
+    if (cmd.length > wordsep.length)
     {
       if (debug)
         console.log("not enough words:")
@@ -652,7 +660,7 @@ function speech_process_new_final_results(final_result_str)
 
     for (var i = 0; i < cmd.length; ++i)
     {
-      if (cmd[i] != words[nwords-cmd.length+i].toLowerCase())
+      if (cmd[i] != wordsep[wordsep.length-cmd.length+i].word.toLowerCase())
       {
         if (debug)
           console.log("mismatch at index "+i)
@@ -669,10 +677,8 @@ function speech_process_new_final_results(final_result_str)
 
   function commit_update()
   {
-    speech_update_final_marker(words.join(" "));
+    cm.replaceRange(join_wordsep(wordsep), par_start, cursor);
   }
-
-  // {{{ commands
 
   function delete_words(n)
   {
@@ -684,15 +690,20 @@ function speech_process_new_final_results(final_result_str)
     }
   }
 
-  if (eat_command(["scratch", "that"])
-      || eat_command(["scratch", "this"])
-      || eat_command(["scratched", "eye"]))
+  function append_sep(s)
   {
-    set_message("debug", "[speech] scratch that");
-    words = [];
-    commit_update();
+    if (wordsep.length)
+    {
+      wordsep[wordsep.length-1].sep += s;
+      wordsep = normalize_wordsep_from(wordsep, wordsep.length-1);
+    }
+    else
+      wordsep.push({word: "", sep: s})
   }
-  else if (
+
+  // {{{ commands
+  //
+  if (
       eat_command(["delete", "word"])
       || eat_command(["delete", "one", "word"])
       || eat_command(["delete", "this", "word"])
@@ -731,31 +742,11 @@ function speech_process_new_final_results(final_result_str)
     commit_update();
     speech_stop();
   }
-  else if (
-      eat_command(["commit", "this", "text"])
-      || eat_command(["yep"])
-      || eat_command(["yelp"])
-      )
-  {
-    speech_commit_text();
-    words = [];
-    commit_update();
-  }
   else if (eat_command(["wrap", "this", "paragraph"]))
   {
     commit_update();
     codemirror_instance.wrapParagraph(
         codemirror_instance.getCursor(), wrap_options);
-  }
-  else if (eat_command(["wrap", "this", "text"]))
-  {
-    commit_update();
-    if (speech_phrase_final_marker)
-    {
-      var fromto = speech_phrase_final_marker.find();
-      if (fromto != null)
-        codemirror_instance.wrapRange(fromto.from, fromto.to, wrap_options);
-    }
   }
   else if (eat_command(["backspace"]))
   {
@@ -767,28 +758,22 @@ function speech_process_new_final_results(final_result_str)
     commit_update();
     codemirror_instance.execCommand("deleteLine");
   }
-  else if (eat_command(["uncap"]))
-  {
-    set_message("debug", "[speech] uncap");
-
-    if (words.length)
-      words[0] = (words[0][0].toLowerCase() + words[0].slice(1));
-    commit_update();
-  }
   else if (
       eat_command(["comma"])
       || eat_command(["coma"])
       )
   {
     set_message("debug", "[speech] comma");
-
-    if (words.length)
-      words[words.length-1] = words[words.length-1]+",";
-    else
-      words.push(",");
-
+    append_sep(",");
     commit_update();
   }
+  else if (eat_command(["new", "line"]))
+  {
+    set_message("debug", "[speech] new line");
+    append_sep("\n");
+    commit_update();
+  }
+
   // }}}
   else
     commit_update();
@@ -948,7 +933,6 @@ function setup_codemirror()
     extraKeys:
         {
           // "Ctrl-/": "toggleComment",
-          "Ctrl-/": speech_scratch_input,
           "Ctrl-\\": function(cm)
           {
             if (codemirror_instance.somethingSelected())
@@ -976,7 +960,6 @@ function setup_codemirror()
 
           "F2": run_subeditor_on_selection,
           "F3": run_subeditor_on_document,
-          "Ctrl-Enter": speech_commit_text_and_flush_recognizer,
           "Ctrl-'": speech_toggle,
 
           "Tab": function(cm)
