@@ -178,7 +178,7 @@ function ends_with_whitespace(s)
 // a 'wordsep' is an array [{word, sep}, {word, separator}, ...].
 function split_into_wordsep(s)
 {
-  var separator = /^(.*?)([-.,"';:?! \n]+)/;
+  var separator = /^(.*?)([-.,";:?! \n]+)/;
   var result = [];
 
   while (true)
@@ -526,9 +526,89 @@ function run_subeditor_on_document(cm)
 
 // {{{ speech recognition
 
+// {{{ languages
+
+// copied from https://www.google.com/intl/en/chrome/demos/speech.html
+var speech_languages =
+[['Afrikaans',       ['af-ZA']],
+ ['Bahasa Indonesia',['id-ID']],
+ ['Bahasa Melayu',   ['ms-MY']],
+ ['Català',          ['ca-ES']],
+ ['Čeština',         ['cs-CZ']],
+ ['Dansk',           ['da-DK']],
+ ['Deutsch',         ['de-DE']],
+ ['English',         ['en-AU', 'Australia'],
+                     ['en-CA', 'Canada'],
+                     ['en-IN', 'India'],
+                     ['en-NZ', 'New Zealand'],
+                     ['en-ZA', 'South Africa'],
+                     ['en-GB', 'United Kingdom'],
+                     ['en-US', 'United States']],
+ ['Español',         ['es-AR', 'Argentina'],
+                     ['es-BO', 'Bolivia'],
+                     ['es-CL', 'Chile'],
+                     ['es-CO', 'Colombia'],
+                     ['es-CR', 'Costa Rica'],
+                     ['es-EC', 'Ecuador'],
+                     ['es-SV', 'El Salvador'],
+                     ['es-ES', 'España'],
+                     ['es-US', 'Estados Unidos'],
+                     ['es-GT', 'Guatemala'],
+                     ['es-HN', 'Honduras'],
+                     ['es-MX', 'México'],
+                     ['es-NI', 'Nicaragua'],
+                     ['es-PA', 'Panamá'],
+                     ['es-PY', 'Paraguay'],
+                     ['es-PE', 'Perú'],
+                     ['es-PR', 'Puerto Rico'],
+                     ['es-DO', 'República Dominicana'],
+                     ['es-UY', 'Uruguay'],
+                     ['es-VE', 'Venezuela']],
+ ['Euskara',         ['eu-ES']],
+ ['Filipino',        ['fil-PH']],
+ ['Français',        ['fr-FR']],
+ ['Galego',          ['gl-ES']],
+ ['Hrvatski',        ['hr_HR']],
+ ['IsiZulu',         ['zu-ZA']],
+ ['Íslenska',        ['is-IS']],
+ ['Italiano',        ['it-IT', 'Italia'],
+                     ['it-CH', 'Svizzera']],
+ ['Lietuvių',        ['lt-LT']],
+ ['Magyar',          ['hu-HU']],
+ ['Nederlands',      ['nl-NL']],
+ ['Norsk bokmål',    ['nb-NO']],
+ ['Polski',          ['pl-PL']],
+ ['Português',       ['pt-BR', 'Brasil'],
+                     ['pt-PT', 'Portugal']],
+ ['Română',          ['ro-RO']],
+ ['Slovenščina',     ['sl-SI']],
+ ['Slovenčina',      ['sk-SK']],
+ ['Suomi',           ['fi-FI']],
+ ['Svenska',         ['sv-SE']],
+ ['Tiếng Việt',      ['vi-VN']],
+ ['Türkçe',          ['tr-TR']],
+ ['Ελληνικά',        ['el-GR']],
+ ['български',       ['bg-BG']],
+ ['Pусский',         ['ru-RU']],
+ ['Српски',          ['sr-RS']],
+ ['Українська',      ['uk-UA']],
+ ['한국어',            ['ko-KR']],
+ ['中文',             ['cmn-Hans-CN', '普通话 (中国大陆)'],
+                     ['cmn-Hans-HK', '普通话 (香港)'],
+                     ['cmn-Hant-TW', '中文 (台灣)'],
+                     ['yue-Hant-HK', '粵語 (香港)']],
+ ['日本語',           ['ja-JP']],
+ ['हिन्दी',            ['hi-IN']],
+ ['ภาษาไทย',         ['th-TH']]];
+
+// }}}
+
 var speech_recognition;
 var speech_started;
 var speech_phrase_prelim_marker;
+var speech_language_select;
+var speech_dialect_select;
+
 
 function speech_update_indicator(flag)
 {
@@ -867,9 +947,99 @@ function speech_process_new_final_results(final_result_str)
     commit_update();
 }
 
+function speech_update_dialect_select()
+{
+  for (var i = speech_dialect_select.options.length - 1; i >= 0; i--)
+  {
+    speech_dialect_select.remove(i);
+  }
+  var dia_list = speech_languages[speech_language_select.selectedIndex];
+  for (var i = 1; i < dia_list.length; i++)
+  {
+    var dia_entry = dia_list[i];
+    var dia_value = dia_entry[0];
+    var dia_descr;
+    if (dia_entry.length == 2)
+      dia_descr = dia_entry[1];
+    else
+      dia_descr = "(default)";
+    speech_dialect_select.options.add(new Option(dia_descr, dia_value));
+  }
+}
+
+
+function speech_select_dialect(l)
+{
+  for (var ilang = 0; ilang < speech_languages.length; ilang++)
+  {
+    var dia_list = speech_languages[ilang];
+    for (var idia = 1; idia < dia_list.length; idia++)
+    {
+      if (dia_list[idia][0] == l)
+      {
+        speech_language_select.selectedIndex = ilang;
+        speech_update_dialect_select();
+        speech_dialect_select.selectedIndex = idia - 1;
+        return;
+      }
+    }
+  }
+  alert("dialect for selection not found: "+l);
+}
+
+
+function speech_propagate_selected_language()
+{
+  var prev_speech_started = speech_started;
+  speech_started = false;
+
+  if (speech_started)
+    speech_recognition.stop();
+
+  var lang = speech_get_dialect();
+  set_message("info", "selecting language: " + lang);
+  speech_recognition.lang = lang;
+
+  if (prev_speech_started)
+    speech_recognition.start();
+
+  speech_started = prev_speech_started;
+}
+
+
+function speech_get_dialect(l)
+{
+  return speech_languages
+    [speech_language_select.selectedIndex]
+    [speech_dialect_select.selectedIndex + 1][0];
+}
+
 
 function setup_speech_recognition()
 {
+  // {{{ language picker
+
+  speech_language_select = $("#select_language").get(0);
+  speech_dialect_select = $("#select_dialect").get(0);
+
+  for (var i = 0; i < speech_languages.length; i++)
+  {
+    speech_language_select.options[i] =
+      new Option(speech_languages[i][0], i);
+  }
+  $(speech_language_select).change(
+      function()
+      {
+        speech_update_dialect_select();
+        speech_propagate_selected_language();
+      });
+
+  $(speech_dialect_select).change(speech_propagate_selected_language);
+
+  speech_select_dialect("en-US");
+
+  // }}}
+
   if (!('webkitSpeechRecognition' in window))
   {
     set_message("warning", "Web Speech API not supported");
@@ -879,9 +1049,6 @@ function setup_speech_recognition()
     speech_recognition = new webkitSpeechRecognition();
     speech_recognition.continuous = true;
     speech_recognition.interimResults = true;
-    speech_recognition.lang = "en-US";
-
-    // FIXME: Language choice
 
     var speech_skipped_transcript;
 
