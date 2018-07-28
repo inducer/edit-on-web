@@ -1054,13 +1054,13 @@ function setup_speech_recognition()
 
     speech_recognition.onstart = function()
     {
-      // set_message("debug", "[speech] onstart");
+      set_message("debug", "[speech] onstart");
       speech_skipped_transcript = "";
     }
 
     speech_recognition.onend = function()
     {
-      // set_message("debug", "[speech] onend");
+      set_message("debug", "[speech] onend");
       if (speech_started)
       {
         speech_recognition.start();
@@ -1073,7 +1073,6 @@ function setup_speech_recognition()
 
       var final_result_str = "";
       var prelim_result_str = "";
-      var final_result_count = 0;
       var seen_non_final = false;
 
       for (var iresult = 0;
@@ -1083,22 +1082,22 @@ function setup_speech_recognition()
 
         if (result.isFinal && !seen_non_final)
         {
+          // leading final-only bit
+
           if (result.length >= 1)
             final_result_str += result[0].transcript;
-
-          final_result_count += 1;
         }
         else
         {
+          // not final, or past first non-final bit
+
           if (result.length >= 1)
             prelim_result_str += result[0].transcript;
-        }
-
-        if (!result.isFinal)
           seen_non_final = true;
+        }
       }
 
-      // set_message("debug", prelim_result_str+"|"+final_result_str);
+      // set_message("info", final_result_str +"|" + prelim_result_str);
       speech_update_prelim_marker(prelim_result_str);
 
       if (final_result_str.slice(0, speech_skipped_transcript.length)
